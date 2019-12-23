@@ -8,7 +8,7 @@ from setuptools import setup, find_packages
 
 TESTING = any(x in sys.argv for x in ["test", "pytest"])
 
-setup_requirements = []
+setup_requirements = ['bumpversion']
 if TESTING:
     if sys.version_info < (3, 7):
         print('testing serialio needs python >= 3.7')
