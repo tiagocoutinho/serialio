@@ -2,6 +2,7 @@
 import io
 import time
 import asyncio
+import logging
 
 # ``memoryview`` was introduced in Python 2.7 and ``bytes(some_memoryview)``
 # isn't returning the contents (very unfortunate). Therefore we need special
@@ -151,7 +152,7 @@ class Timeout(object):
         self.target_time = self.TIME() + duration
 
 
-class SerialBase(io.RawIOBase):
+class SerialBase:
     """\
     Serial port base class. Provides __init__ function and properties to
     get/set port settings.
@@ -172,12 +173,9 @@ class SerialBase(io.RawIOBase):
                  bytesize=EIGHTBITS,
                  parity=PARITY_NONE,
                  stopbits=STOPBITS_ONE,
-                 timeout=None,
                  xonxoff=False,
                  rtscts=False,
-                 write_timeout=None,
                  dsrdtr=False,
-                 inter_byte_timeout=None,
                  exclusive=None,
                  eol=b'\n',
                  **kwargs):
@@ -188,74 +186,37 @@ class SerialBase(io.RawIOBase):
         """
 
         self.is_open = False
-        self.portstr = None
-        self.name = None
-        # correct values are assigned below through properties
-        self._port = None
+        self.name = port
+        self._port = port
         self._baudrate = baudrate
         self._bytesize = bytesize
         self._parity = parity
         self._stopbits = stopbits
-        self._timeout = timeout
-        self._write_timeout = write_timeout
         self._xonxoff = xonxoff
         self._rtscts = rtscts
         self._dsrdtr = dsrdtr
-        self._inter_byte_timeout = inter_byte_timeout
         self._rs485_mode = None  # disabled by default
         self._rts_state = True
         self._dtr_state = True
         self._break_state = False
         self._exclusive = exclusive
         self._eol = eol
-
-        # assign values using get/set methods using the properties feature
-
-        self.port = port
-        '''
-        self.baudrate = baudrate
-        self.bytesize = bytesize
-        self.parity = parity
-        self.stopbits = stopbits
-        self.timeout = timeout
-        self.write_timeout = write_timeout
-        self.xonxoff = xonxoff
-        self.rtscts = rtscts
-        self.dsrdtr = dsrdtr
-        self.inter_byte_timeout = inter_byte_timeout
-        self.exclusive = exclusive
-        '''
+        self.logger = logging.getLogger('Serial({})'.format(self.name))
         if kwargs:
             raise ValueError('unexpected keyword arguments: {!r}'.format(kwargs))
 
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
     # to be implemented by subclasses:
-    # def open(self):
-    # def close(self):
+    # async def open(self):
+    # async def close(self):
 
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
     @property
     def port(self):
-        """\
-        Get the current port setting. The value that was passed on init or using
-        setPort() is passed back.
-        """
+        """Get the current port setting"""
         return self._port
-
-    @port.setter
-    def port(self, port):
-        """\
-        Set the port.
-        """
-        if not isinstance(port, basestring):
-            raise ValueError('"port" must be a string, not {}'.format(type(port)))
-        if self.is_open:
-            raise SerialException('Cannot set a port on an open Serial object')
-        self.portstr = port
-        self._port = port
-        self.name = self.portstr
 
     @property
     def baudrate(self):
@@ -326,62 +287,6 @@ class SerialBase(io.RawIOBase):
         if stopbits not in self.STOPBITS:
             raise ValueError("Not a valid stop bit size: {!r}".format(stopbits))
         self._stopbits = stopbits
-        if self.is_open:
-            await self._reconfigure_port()
-
-    @property
-    def timeout(self):
-        """Get the current timeout setting."""
-        return self._timeout
-
-    async def set_timeout(self, timeout):
-        """Change timeout setting."""
-        if timeout is not None:
-            try:
-                timeout + 1     # test if it's a number, will throw a TypeError if not...
-            except TypeError:
-                raise ValueError("Not a valid timeout: {!r}".format(timeout))
-            if timeout < 0:
-                raise ValueError("Not a valid timeout: {!r}".format(timeout))
-        self._timeout = timeout
-        if self.is_open:
-            await self._reconfigure_port()
-
-    @property
-    def write_timeout(self):
-        """Get the current timeout setting."""
-        return self._write_timeout
-
-    async def set_write_timeout(self, timeout):
-        """Change timeout setting."""
-        if timeout is not None:
-            if timeout < 0:
-                raise ValueError("Not a valid timeout: {!r}".format(timeout))
-            try:
-                timeout + 1     # test if it's a number, will throw a TypeError if not...
-            except TypeError:
-                raise ValueError("Not a valid timeout: {!r}".format(timeout))
-
-        self._write_timeout = timeout
-        if self.is_open:
-            await self._reconfigure_port()
-
-    @property
-    def inter_byte_timeout(self):
-        """Get the current inter-character timeout setting."""
-        return self._inter_byte_timeout
-
-    async def set_inter_byte_timeout(self, ic_timeout):
-        """Change inter-byte timeout setting."""
-        if ic_timeout is not None:
-            if ic_timeout < 0:
-                raise ValueError("Not a valid timeout: {!r}".format(ic_timeout))
-            try:
-                ic_timeout + 1     # test if it's a number, will throw a TypeError if not...
-            except TypeError:
-                raise ValueError("Not a valid timeout: {!r}".format(ic_timeout))
-
-        self._inter_byte_timeout = ic_timeout
         if self.is_open:
             await self._reconfigure_port()
 
@@ -469,8 +374,7 @@ class SerialBase(io.RawIOBase):
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
     _SAVED_SETTINGS = ('baudrate', 'bytesize', 'parity', 'stopbits', 'xonxoff',
-                       'dsrdtr', 'rtscts', 'timeout', 'write_timeout',
-                       'inter_byte_timeout')
+                       'dsrdtr', 'rtscts')
 
     def get_settings(self):
         """\
@@ -493,9 +397,9 @@ class SerialBase(io.RawIOBase):
 
     def __repr__(self):
         """String representation of the current port settings and its state."""
-        return '{name}<id=0x{id:x}, open={p.is_open}>(port={p.portstr!r}, ' \
+        return '{name}<id=0x{id:x}, open={p.is_open}>(port={p.port!r}, ' \
                'baudrate={p.baudrate!r}, bytesize={p.bytesize!r}, parity={p.parity!r}, ' \
-               'stopbits={p.stopbits!r}, timeout={p.timeout!r}, xonxoff={p.xonxoff!r}, ' \
+               'stopbits={p.stopbits!r}, xonxoff={p.xonxoff!r}, ' \
                'rtscts={p.rtscts!r}, dsrdtr={p.dsrdtr!r})'.format(
                    name=self.__class__.__name__, id=id(self), p=self)
 
@@ -512,17 +416,6 @@ class SerialBase(io.RawIOBase):
     def seekable(self):
         return False
 
-    async def readline(self, eol=None):
-        if eol is None:
-            eol = self._eol
-        data = b''
-        while True:
-            c = await self.read()
-            data += c
-            if c == eol:
-                break
-        return data
-
     async def readinto(self, b):
         data = await self.read(len(b))
         n = len(data)
@@ -535,18 +428,53 @@ class SerialBase(io.RawIOBase):
             b[:n] = array.array('b', data)
         return n
 
-    #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
-    # context manager
+    async def readuntil(self, separator=LF):
+        """\
+        Read until an expected sequence is found ('\n' by default) or the size
+        is exceeded.
+        """
+        lenterm = len(separator)
+        line = bytearray()
+        while True:
+            c = await self.read(1)
+            if c:
+                line += c
+                if line[-lenterm:] == separator:
+                    break
+            else:
+                break
+        return bytes(line)
 
-    def __enter__(self):
-        if self._port is not None and not self.is_open:
-            self.open()
-        return self
+    async def readbuffer(self):
+        """Read all bytes currently available in the buffer of the OS"""
+        return await self.read(self.in_waiting)
 
-    def __exit__(self, *args, **kwargs):
-        self.close()
+    async def writelines(self, lines):
+        return await self.write(b''.join(lines))
 
-    #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+    async def readline(self, eol=None):
+        if eol is None:
+            eol = self._eol
+        return await self.readuntil(expected=eol)
+
+    async def readlines(self, n, eol=None):
+        if eol is None:
+            eol = self._eol
+        return [await self.readline(eol=eol) for _ in range(n)]
+
+    async def write_readline(self, data, eol=None):
+        await self._write(data)
+        return await self._readline(eol=eol)
+
+    async def write_readlines(self, data, n, eol=None):
+        await self.write(data)
+        return await self.readlines(n, eol=eol)
+
+    async def writelines_readlines(self, lines, n=None, eol=None):
+        if n is None:
+            n = len(lines)
+        await self.writelines(lines)
+        return await self.readlines(n, eol=eol)
 
     async def send_break(self, duration=0.25):
         """\
@@ -558,57 +486,3 @@ class SerialBase(io.RawIOBase):
         self.break_condition = True
         await asyncio.sleep(duration)
         self.break_condition = False
-
-    #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
-    # additional functionality
-
-    async def read_all(self):
-        """\
-        Read all bytes currently available in the buffer of the OS.
-        """
-        return await self.read(self.in_waiting)
-
-    async def read_until(self, expected=LF, size=None):
-        """\
-        Read until an expected sequence is found ('\n' by default), the size
-        is exceeded or until timeout occurs.
-        """
-        lenterm = len(expected)
-        line = bytearray()
-        timeout = Timeout(self._timeout)
-        while True:
-            c = await self.read(1)
-            if c:
-                line += c
-                if line[-lenterm:] == expected:
-                    break
-                if size is not None and len(line) >= size:
-                    break
-            else:
-                break
-            if timeout.expired():
-                break
-        return bytes(line)
-
-    def iread_until(self, *args, **kwargs):
-        """\
-        Read lines, implemented as generator. It will raise StopIteration on
-        timeout (empty read).
-        """
-        while True:
-            line = self.read_until(*args, **kwargs)
-            if not line:
-                break
-            yield line
-
-
-#  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
-if __name__ == '__main__':
-    import sys
-    s = SerialBase()
-    sys.stdout.write('port name:  {}\n'.format(s.name))
-    sys.stdout.write('baud rates: {}\n'.format(s.BAUDRATES))
-    sys.stdout.write('byte sizes: {}\n'.format(s.BYTESIZES))
-    sys.stdout.write('parities:   {}\n'.format(s.PARITIES))
-    sys.stdout.write('stop bits:  {}\n'.format(s.STOPBITS))
-    sys.stdout.write('{}\n'.format(s))

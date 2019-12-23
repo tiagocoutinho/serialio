@@ -7,7 +7,6 @@ import telnetlib
 import urllib.parse
 
 import sockio.aio
-import async_timeout
 
 import serial
 from serial import (
@@ -15,7 +14,6 @@ from serial import (
     Timeout, iterbytes, to_bytes)
 
 from ..base import SerialBase
-from gserial.util import Strip
 
 
 log = logging.getLogger('serialio.rfc2217')
@@ -216,7 +214,6 @@ class TelnetOption(object):
         self.ack_no = ack_no
         self.state = initial_state
         self.active = False
-        self.active_event = asyncio.Event()
         self.activation_callback = activation_callback or (lambda : None)
         self.option_changed_callback = option_changed_callback or (lambda o: None)
 
@@ -233,7 +230,6 @@ class TelnetOption(object):
             if self.state is REQUESTED:
                 self.state = ACTIVE
                 self.active = True
-                self.active_event.set()
                 self.activation_callback()
             elif self.state is ACTIVE:
                 pass
@@ -241,7 +237,6 @@ class TelnetOption(object):
                 self.state = ACTIVE
                 await self.connection.telnet_send_option(self.send_yes, self.option)
                 self.active = True
-                self.active_event.set()
                 self.activation_callback()
             elif self.state is REALLY_INACTIVE:
                 await self.connection.telnet_send_option(self.send_no, self.option)
@@ -251,12 +246,10 @@ class TelnetOption(object):
             if self.state is REQUESTED:
                 self.state = INACTIVE
                 self.active = False
-                self.active_event.clear()
             elif self.state is ACTIVE:
                 self.state = INACTIVE
                 await self.connection.telnet_send_option(self.send_no, self.option)
                 self.active = False
-                self.active_event.clear()
             elif self.state is INACTIVE:
                 pass
             elif self.state is REALLY_INACTIVE:
@@ -287,15 +280,19 @@ class TelnetSubnegotiation(object):
         """String for debug outputs."""
         return "{sn.name}:{sn.state}".format(sn=self)
 
+    def prepare(self, value):
+        self.value = value
+        self.state = REQUESTED
+        self.active_event.clear()
+        return self.option, self.value
+
     async def set(self, value):
         """\
         Request a change of the value. a request is sent to the server. if
         the client needs to know if the change is performed he has to check the
         state of this object.
         """
-        self.value = value
-        self.state = REQUESTED
-        self.active_event.clear()
+        self.prepare(value)
         self.connection.logger.debug("SB Requesting {} -> {!r}".format(self.name, self.value))
         await self.connection.rfc2217_send_subnegotiation(self.option, self.value)
 
@@ -310,9 +307,9 @@ class TelnetSubnegotiation(object):
     # add property to have a similar interface as TelnetOption
     active = property(is_ready)
 
-    async def wait(self, timeout=1):
+    async def wait(self):
         """\
-        Wait until the subnegotiation has been acknowledged or timeout. It
+        Wait until the subnegotiation has been acknowledged. It
         can also throw a value error when the answer from the server does not
         match the value sent.
         """
@@ -355,7 +352,6 @@ class Serial(SerialBase):
         self._modemstate_timeout = Timeout(-1)
         self._remote_suspend_flow = False
         self._write_lock = None
-        self.logger = log
         self._ignore_set_control_answer = False
         self._poll_modem_state = False
         self._network_timeout = 1
@@ -377,14 +373,14 @@ class Serial(SerialBase):
             raise SerialException("Port must be configured before it can be used.")
         if self.is_open:
             raise SerialException("Port is already open.")
-        host, port = self.from_url(self.portstr)
-        self.logger = logging.getLogger('RFC2217({}:{})'.format(host, port))
+        host, port = self.from_url(self._port)
+
         try:
             self._socket = sockio.aio.TCP(host, port, auto_reconnect=False)
             await self._socket.open()
         except Exception as msg:
             self._socket = None
-            raise SerialException("Could not open port {}: {}".format(self.portstr, msg))
+            raise SerialException("Could not open port {}: {}".format(self.port, msg))
 
         # use a thread save queue as buffer. it also simplifies implementing
         # the read timeout
@@ -453,6 +449,7 @@ class Serial(SerialBase):
                     "Remote does not seem to support RFC2217 or BINARY mode {!r}".format(mandadory_options))
             self.logger.info("Negotiated options: {}".format(self._telnet_options))
 
+            tasks = []
             # fine, go on, set RFC 2271 specific things
             await self._reconfigure_port()
             # all things set up get, now a clean start
@@ -470,13 +467,6 @@ class Serial(SerialBase):
         """Set communication parameters on opened port."""
         if self._socket is None:
             raise SerialException("Can only operate on open ports")
-
-        # if self._timeout != 0 and self._interCharTimeout is not None:
-            # XXX
-
-        if self._write_timeout is not None:
-            raise NotImplementedError('write_timeout is currently not supported')
-            # XXX
 
         # Setup the connection
         # to get good performance, all parameter changes are sent first...
@@ -568,11 +558,10 @@ class Serial(SerialBase):
 
     async def read(self, size=1):
         """\
-        Read size bytes from the serial port. If a timeout is set it may
-        return less characters as requested. With no timeout it will block
-        until the requested number of bytes is read.
+        Read size bytes from the serial port. It will block until the requested
+        number of bytes is read.
         """
-        return await asyncio.wait_for(self._read(size=size), self._timeout)
+        return await self._read(size=size)
 
     @ensure_open
     async def _read(self, size=1):
@@ -668,9 +657,6 @@ class Serial(SerialBase):
     async def cd(self):
         """Read terminal status line: Carrier Detect."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_CD)
-
-    # - - - platform specific - - -
-    # None so far
 
     # - - - RFC2217 specific - - -
 
@@ -797,7 +783,7 @@ class Serial(SerialBase):
     async def _internal_raw_write(self, data):
         """internal socket write with no data escaping. used to send telnet stuff."""
         async with self._write_lock:
-            self.logger.debug('SEND %r', Strip(data))
+            self.logger.debug('SEND %r', data)
             await self._socket.write(data)
 
     async def telnet_send_option(self, action, option):
