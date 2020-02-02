@@ -1,32 +1,7 @@
-
 import io
 import time
 import asyncio
 import logging
-
-# ``memoryview`` was introduced in Python 2.7 and ``bytes(some_memoryview)``
-# isn't returning the contents (very unfortunate). Therefore we need special
-# cases and test for it. Ensure that there is a ``memoryview`` object for older
-# Python versions. This is easier than making every test dependent on its
-# existence.
-try:
-    memoryview
-except (NameError, AttributeError):
-    # implementation does not matter as we do not really use it.
-    # it just must not inherit from something else we might care for.
-    class memoryview(object):   # pylint: disable=redefined-builtin,invalid-name
-        pass
-
-try:
-    unicode
-except (NameError, AttributeError):
-    unicode = str       # for Python 3, pylint: disable=redefined-builtin,invalid-name
-
-try:
-    basestring
-except (NameError, AttributeError):
-    basestring = (str,)    # for Python 3, pylint: disable=redefined-builtin,invalid-name
-
 
 # "for byte in data" fails for python3 as it returns ints instead of bytes
 def iterbytes(b):
@@ -53,10 +28,12 @@ def to_bytes(seq):
         return bytes(seq)
     elif isinstance(seq, memoryview):
         return seq.tobytes()
-    elif isinstance(seq, unicode):
-        raise TypeError('unicode strings are not supported, please encode to bytes: {!r}'.format(seq))
+    elif isinstance(seq, str):
+        raise TypeError(
+            'unicode strings are not supported, please encode to bytes: {!r}'.format(seq))
     else:
-        # handle list of integers and bytes (one or more items) for Python 2 and 3
+        # handle list of integers and bytes (one or more items) for Python 2
+        # and 3
         return bytes(bytearray(seq))
 
 
@@ -158,13 +135,19 @@ class SerialBase:
     get/set port settings.
     """
 
-    # default values, may be overridden in subclasses that do not support all values
+    # default values, may be overridden in subclasses that do not support all
+    # values
     BAUDRATES = (50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800,
                  9600, 19200, 38400, 57600, 115200, 230400, 460800, 500000,
                  576000, 921600, 1000000, 1152000, 1500000, 2000000, 2500000,
                  3000000, 3500000, 4000000)
     BYTESIZES = (FIVEBITS, SIXBITS, SEVENBITS, EIGHTBITS)
-    PARITIES = (PARITY_NONE, PARITY_EVEN, PARITY_ODD, PARITY_MARK, PARITY_SPACE)
+    PARITIES = (
+        PARITY_NONE,
+        PARITY_EVEN,
+        PARITY_ODD,
+        PARITY_MARK,
+        PARITY_SPACE)
     STOPBITS = (STOPBITS_ONE, STOPBITS_ONE_POINT_FIVE, STOPBITS_TWO)
 
     def __init__(self,
@@ -203,7 +186,8 @@ class SerialBase:
         self._eol = eol
         self.logger = logging.getLogger('Serial({})'.format(self.name))
         if kwargs:
-            raise ValueError('unexpected keyword arguments: {!r}'.format(kwargs))
+            raise ValueError(
+                'unexpected keyword arguments: {!r}'.format(kwargs))
 
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
@@ -285,7 +269,8 @@ class SerialBase:
     async def set_stopbits(self, stopbits):
         """Change stop bits size."""
         if stopbits not in self.STOPBITS:
-            raise ValueError("Not a valid stop bit size: {!r}".format(stopbits))
+            raise ValueError(
+                "Not a valid stop bit size: {!r}".format(stopbits))
         self._stopbits = stopbits
         if self.is_open:
             await self._reconfigure_port()
@@ -320,7 +305,8 @@ class SerialBase:
     async def set_dsrdtr(self, dsrdtr=None):
         """Change DsrDtr flow control setting."""
         if dsrdtr is None:
-            # if not set, keep backwards compatibility and follow rtscts setting
+            # if not set, keep backwards compatibility and follow rtscts
+            # setting
             self._dsrdtr = self._rtscts
         else:
             # if defined independently, follow its value
@@ -381,7 +367,8 @@ class SerialBase:
         Get current port settings as a dictionary. For use with
         apply_settings().
         """
-        return dict([(key, getattr(self, '_' + key)) for key in self._SAVED_SETTINGS])
+        return dict([(key, getattr(self, '_' + key))
+                     for key in self._SAVED_SETTINGS])
 
     def apply_settings(self, d):
         """\
@@ -390,8 +377,10 @@ class SerialBase:
         values will simply left unchanged.
         """
         for key in self._SAVED_SETTINGS:
-            if key in d and d[key] != getattr(self, '_' + key):   # check against internal "_" value
-                setattr(self, key, d[key])          # set non "_" value to use properties write function
+            if key in d and d[key] != getattr(
+                    self, '_' + key):   # check against internal "_" value
+                # set non "_" value to use properties write function
+                setattr(self, key, d[key])
 
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 

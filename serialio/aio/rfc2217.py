@@ -34,13 +34,13 @@ WILL = telnetlib.WILL
 WONT = telnetlib.WONT
 DO = telnetlib.DO
 DONT = telnetlib.DONT
-IAC = telnetlib.IAC # Interpret As Command
-IAC_DOUBLED = 2*IAC
+IAC = telnetlib.IAC  # Interpret As Command
+IAC_DOUBLED = 2 * IAC
 
 # selected telnet options
 BINARY = telnetlib.BINARY    # 8-bit data path
 ECHO = telnetlib.ECHO      # echo
-SGA = telnetlib.SGA # suppress go ahead
+SGA = telnetlib.SGA  # suppress go ahead
 
 # RFC2217
 COM_PORT_OPTION = b'\x2c'
@@ -72,10 +72,14 @@ SERVER_SET_LINESTATE_MASK = b'\x6e'
 SERVER_SET_MODEMSTATE_MASK = b'\x6f'
 SERVER_PURGE_DATA = b'\x70'
 
-SET_CONTROL_REQ_FLOW_SETTING = b'\x00'        # Request Com Port Flow Control Setting (outbound/both)
-SET_CONTROL_USE_NO_FLOW_CONTROL = b'\x01'     # Use No Flow Control (outbound/both)
-SET_CONTROL_USE_SW_FLOW_CONTROL = b'\x02'     # Use XON/XOFF Flow Control (outbound/both)
-SET_CONTROL_USE_HW_FLOW_CONTROL = b'\x03'     # Use HARDWARE Flow Control (outbound/both)
+# Request Com Port Flow Control Setting (outbound/both)
+SET_CONTROL_REQ_FLOW_SETTING = b'\x00'
+# Use No Flow Control (outbound/both)
+SET_CONTROL_USE_NO_FLOW_CONTROL = b'\x01'
+# Use XON/XOFF Flow Control (outbound/both)
+SET_CONTROL_USE_SW_FLOW_CONTROL = b'\x02'
+# Use HARDWARE Flow Control (outbound/both)
+SET_CONTROL_USE_HW_FLOW_CONTROL = b'\x03'
 SET_CONTROL_REQ_BREAK_STATE = b'\x04'         # Request BREAK State
 SET_CONTROL_BREAK_ON = b'\x05'                # Set BREAK State ON
 SET_CONTROL_BREAK_OFF = b'\x06'               # Set BREAK State OFF
@@ -85,13 +89,18 @@ SET_CONTROL_DTR_OFF = b'\x09'                 # Set DTR Signal State OFF
 SET_CONTROL_REQ_RTS = b'\x0a'                 # Request RTS Signal State
 SET_CONTROL_RTS_ON = b'\x0b'                  # Set RTS Signal State ON
 SET_CONTROL_RTS_OFF = b'\x0c'                 # Set RTS Signal State OFF
-SET_CONTROL_REQ_FLOW_SETTING_IN = b'\x0d'     # Request Com Port Flow Control Setting (inbound)
+# Request Com Port Flow Control Setting (inbound)
+SET_CONTROL_REQ_FLOW_SETTING_IN = b'\x0d'
 SET_CONTROL_USE_NO_FLOW_CONTROL_IN = b'\x0e'  # Use No Flow Control (inbound)
-SET_CONTROL_USE_SW_FLOW_CONTOL_IN = b'\x0f'   # Use XON/XOFF Flow Control (inbound)
-SET_CONTROL_USE_HW_FLOW_CONTOL_IN = b'\x10'   # Use HARDWARE Flow Control (inbound)
-SET_CONTROL_USE_DCD_FLOW_CONTROL = b'\x11'    # Use DCD Flow Control (outbound/both)
+# Use XON/XOFF Flow Control (inbound)
+SET_CONTROL_USE_SW_FLOW_CONTOL_IN = b'\x0f'
+# Use HARDWARE Flow Control (inbound)
+SET_CONTROL_USE_HW_FLOW_CONTOL_IN = b'\x10'
+# Use DCD Flow Control (outbound/both)
+SET_CONTROL_USE_DCD_FLOW_CONTROL = b'\x11'
 SET_CONTROL_USE_DTR_FLOW_CONTROL = b'\x12'    # Use DTR Flow Control (inbound)
-SET_CONTROL_USE_DSR_FLOW_CONTROL = b'\x13'    # Use DSR Flow Control (outbound/both)
+# Use DSR Flow Control (outbound/both)
+SET_CONTROL_USE_DSR_FLOW_CONTROL = b'\x13'
 
 LINESTATE_MASK_TIMEOUT = 128        # Time-out Error
 LINESTATE_MASK_SHIFTREG_EMPTY = 64  # Transfer Shift Register Empty
@@ -102,7 +111,8 @@ LINESTATE_MASK_PARTIY_ERROR = 4     # Parity Error
 LINESTATE_MASK_OVERRUN_ERROR = 2    # Overrun Error
 LINESTATE_MASK_DATA_READY = 1       # Data Ready
 
-MODEMSTATE_MASK_CD = 128            # Receive Line Signal Detect (also known as Carrier Detect)
+# Receive Line Signal Detect (also known as Carrier Detect)
+MODEMSTATE_MASK_CD = 128
 MODEMSTATE_MASK_RI = 64             # Ring Indicator
 MODEMSTATE_MASK_DSR = 32            # Data-Set-Ready Signal State
 MODEMSTATE_MASK_CTS = 16            # Clear-To-Send Signal State
@@ -114,12 +124,16 @@ MODEMSTATE_MASK_CTS_CHANGE = 1      # Delta Clear-To-Send
 PURGE_RECEIVE_BUFFER = b'\x01'      # Purge access server receive data buffer
 PURGE_TRANSMIT_BUFFER = b'\x02'     # Purge access server transmit data buffer
 PURGE_BOTH_BUFFERS = b'\x03'        # Purge both the access server receive data
-                                    # buffer and the access server transmit data buffer
+# buffer and the access server transmit data buffer
 
-SET_CONTROL_REQ_FLOW_SETTING = b'\x00'        # Request Com Port Flow Control Setting (outbound/both)
-SET_CONTROL_USE_NO_FLOW_CONTROL = b'\x01'     # Use No Flow Control (outbound/both)
-SET_CONTROL_USE_SW_FLOW_CONTROL = b'\x02'     # Use XON/XOFF Flow Control (outbound/both)
-SET_CONTROL_USE_HW_FLOW_CONTROL = b'\x03'     # Use HARDWARE Flow Control (outbound/both)
+# Request Com Port Flow Control Setting (outbound/both)
+SET_CONTROL_REQ_FLOW_SETTING = b'\x00'
+# Use No Flow Control (outbound/both)
+SET_CONTROL_USE_NO_FLOW_CONTROL = b'\x01'
+# Use XON/XOFF Flow Control (outbound/both)
+SET_CONTROL_USE_SW_FLOW_CONTROL = b'\x02'
+# Use HARDWARE Flow Control (outbound/both)
+SET_CONTROL_USE_HW_FLOW_CONTROL = b'\x03'
 SET_CONTROL_REQ_BREAK_STATE = b'\x04'         # Request BREAK State
 SET_CONTROL_BREAK_ON = b'\x05'                # Set BREAK State ON
 SET_CONTROL_BREAK_OFF = b'\x06'               # Set BREAK State OFF
@@ -129,13 +143,18 @@ SET_CONTROL_DTR_OFF = b'\x09'                 # Set DTR Signal State OFF
 SET_CONTROL_REQ_RTS = b'\x0a'                 # Request RTS Signal State
 SET_CONTROL_RTS_ON = b'\x0b'                  # Set RTS Signal State ON
 SET_CONTROL_RTS_OFF = b'\x0c'                 # Set RTS Signal State OFF
-SET_CONTROL_REQ_FLOW_SETTING_IN = b'\x0d'     # Request Com Port Flow Control Setting (inbound)
+# Request Com Port Flow Control Setting (inbound)
+SET_CONTROL_REQ_FLOW_SETTING_IN = b'\x0d'
 SET_CONTROL_USE_NO_FLOW_CONTROL_IN = b'\x0e'  # Use No Flow Control (inbound)
-SET_CONTROL_USE_SW_FLOW_CONTOL_IN = b'\x0f'   # Use XON/XOFF Flow Control (inbound)
-SET_CONTROL_USE_HW_FLOW_CONTOL_IN = b'\x10'   # Use HARDWARE Flow Control (inbound)
-SET_CONTROL_USE_DCD_FLOW_CONTROL = b'\x11'    # Use DCD Flow Control (outbound/both)
+# Use XON/XOFF Flow Control (inbound)
+SET_CONTROL_USE_SW_FLOW_CONTOL_IN = b'\x0f'
+# Use HARDWARE Flow Control (inbound)
+SET_CONTROL_USE_HW_FLOW_CONTOL_IN = b'\x10'
+# Use DCD Flow Control (outbound/both)
+SET_CONTROL_USE_DCD_FLOW_CONTROL = b'\x11'
 SET_CONTROL_USE_DTR_FLOW_CONTROL = b'\x12'    # Use DTR Flow Control (inbound)
-SET_CONTROL_USE_DSR_FLOW_CONTROL = b'\x13'    # Use DSR Flow Control (outbound/both)
+# Use DSR Flow Control (outbound/both)
+SET_CONTROL_USE_DSR_FLOW_CONTROL = b'\x13'
 
 LINESTATE_MASK_TIMEOUT = 128        # Time-out Error
 LINESTATE_MASK_SHIFTREG_EMPTY = 64  # Transfer Shift Register Empty
@@ -146,7 +165,8 @@ LINESTATE_MASK_PARTIY_ERROR = 4     # Parity Error
 LINESTATE_MASK_OVERRUN_ERROR = 2    # Overrun Error
 LINESTATE_MASK_DATA_READY = 1       # Data Ready
 
-MODEMSTATE_MASK_CD = 128            # Receive Line Signal Detect (also known as Carrier Detect)
+# Receive Line Signal Detect (also known as Carrier Detect)
+MODEMSTATE_MASK_CD = 128
 MODEMSTATE_MASK_RI = 64             # Ring Indicator
 MODEMSTATE_MASK_DSR = 32            # Data-Set-Ready Signal State
 MODEMSTATE_MASK_CTS = 16            # Clear-To-Send Signal State
@@ -158,7 +178,7 @@ MODEMSTATE_MASK_CTS_CHANGE = 1      # Delta Clear-To-Send
 PURGE_RECEIVE_BUFFER = b'\x01'      # Purge access server receive data buffer
 PURGE_TRANSMIT_BUFFER = b'\x02'     # Purge access server transmit data buffer
 PURGE_BOTH_BUFFERS = b'\x03'        # Purge both the access server receive data
-                                    # buffer and the access server transmit data buffer
+# buffer and the access server transmit data buffer
 
 
 RFC2217_PARITY_MAP = {
@@ -168,14 +188,16 @@ RFC2217_PARITY_MAP = {
     serial.PARITY_MARK: 4,
     serial.PARITY_SPACE: 5,
 }
-RFC2217_REVERSE_PARITY_MAP = dict((v, k) for k, v in RFC2217_PARITY_MAP.items())
+RFC2217_REVERSE_PARITY_MAP = dict((v, k)
+                                  for k, v in RFC2217_PARITY_MAP.items())
 
 RFC2217_STOPBIT_MAP = {
     serial.STOPBITS_ONE: 1,
     serial.STOPBITS_ONE_POINT_FIVE: 3,
     serial.STOPBITS_TWO: 2,
 }
-RFC2217_REVERSE_STOPBIT_MAP = dict((v, k) for k, v in RFC2217_STOPBIT_MAP.items())
+RFC2217_REVERSE_STOPBIT_MAP = dict((v, k)
+                                   for k, v in RFC2217_STOPBIT_MAP.items())
 
 # Telnet filter states
 M_NORMAL = 0
@@ -214,8 +236,9 @@ class TelnetOption(object):
         self.ack_no = ack_no
         self.state = initial_state
         self.active = False
-        self.activation_callback = activation_callback or (lambda : None)
-        self.option_changed_callback = option_changed_callback or (lambda o: None)
+        self.activation_callback = activation_callback or (lambda: None)
+        self.option_changed_callback = option_changed_callback or (
+            lambda o: None)
 
     def __repr__(self):
         """String for debug outputs"""
@@ -292,9 +315,10 @@ class TelnetSubnegotiation(object):
         the client needs to know if the change is performed he has to check the
         state of this object.
         """
-        self.prepare(value)
-        self.connection.logger.debug("SB Requesting {} -> {!r}".format(self.name, self.value))
-        await self.connection.rfc2217_send_subnegotiation(self.option, self.value)
+        option, value = self.prepare(value)
+        self.connection.logger.debug(
+            "SB Requesting {} -> {!r}".format(self.name, value))
+        await self.connection.rfc2217_send_subnegotiation(option, value)
 
     def is_ready(self):
         """\
@@ -302,7 +326,9 @@ class TelnetSubnegotiation(object):
         the change, raise a ValueError.
         """
         if self.state == REALLY_INACTIVE:
-            raise ValueError("remote rejected value for option {!r}".format(self.name))
+            raise ValueError(
+                "remote rejected value for option {!r}".format(
+                    self.name))
         return self.state == ACTIVE
     # add property to have a similar interface as TelnetOption
     active = property(is_ready)
@@ -328,7 +354,8 @@ class TelnetSubnegotiation(object):
             # error propagation done in is_ready
             self.state = REALLY_INACTIVE
             self.active_event.clear()
-        self.connection.logger.debug("SB Answer {} -> {!r} -> {}".format(self.name, suboption, self.state))
+        self.connection.logger.debug(
+            "SB Answer {} -> {!r} -> {}".format(self.name, suboption, self.state))
 
 
 def ensure_open(f):
@@ -370,7 +397,8 @@ class Serial(SerialBase):
         self._poll_modem_state = False
         self._network_timeout = 1
         if self._port is None:
-            raise SerialException("Port must be configured before it can be used.")
+            raise SerialException(
+                "Port must be configured before it can be used.")
         if self.is_open:
             raise SerialException("Port is already open.")
         host, port = self.from_url(self._port)
@@ -380,7 +408,9 @@ class Serial(SerialBase):
             await self._socket.open()
         except Exception as msg:
             self._socket = None
-            raise SerialException("Could not open port {}: {}".format(self.port, msg))
+            raise SerialException(
+                "Could not open port {}: {}".format(
+                    self.port, msg))
 
         # use a thread save queue as buffer. it also simplifies implementing
         # the read timeout
@@ -390,11 +420,14 @@ class Serial(SerialBase):
         self._write_lock = asyncio.Lock()
 
         mandadory_done = asyncio.Event()
+
         def on_mandadory_event(opt):
-            if sum(o.active for o in mandadory_options) == sum(o.state != INACTIVE for o in mandadory_options):
+            if sum(o.active for o in mandadory_options) == sum(
+                    o.state != INACTIVE for o in mandadory_options):
                 mandadory_done.set()
 
-        # name the following separately so that, below, a check can be easily done
+        # name the following separately so that, below, a check can be easily
+        # done
         mandadory_options = [
             TelnetOption(self, 'we-BINARY', BINARY, WILL, WONT, DO, DONT, INACTIVE,
                          option_changed_callback=on_mandadory_event),
@@ -405,23 +438,47 @@ class Serial(SerialBase):
         self._telnet_options = [
             TelnetOption(self, 'ECHO', ECHO, DO, DONT, WILL, WONT, REQUESTED),
             TelnetOption(self, 'we-SGA', SGA, WILL, WONT, DO, DONT, REQUESTED),
-            TelnetOption(self, 'they-SGA', SGA, DO, DONT, WILL, WONT, REQUESTED),
-            TelnetOption(self, 'they-BINARY', BINARY, DO, DONT, WILL, WONT, INACTIVE),
-            TelnetOption(self, 'they-RFC2217', COM_PORT_OPTION, DO, DONT, WILL, WONT, REQUESTED),
+            TelnetOption(
+                self,
+                'they-SGA',
+                SGA,
+                DO,
+                DONT,
+                WILL,
+                WONT,
+                REQUESTED),
+            TelnetOption(
+                self,
+                'they-BINARY',
+                BINARY,
+                DO,
+                DONT,
+                WILL,
+                WONT,
+                INACTIVE),
+            TelnetOption(
+                self,
+                'they-RFC2217',
+                COM_PORT_OPTION,
+                DO,
+                DONT,
+                WILL,
+                WONT,
+                REQUESTED),
         ] + mandadory_options
         # RFC 2217 specific states
         # COM port settings
         self._rfc2217_port_settings = {
             'baudrate': TelnetSubnegotiation(self, 'baudrate', SET_BAUDRATE, SERVER_SET_BAUDRATE),
             'datasize': TelnetSubnegotiation(self, 'datasize', SET_DATASIZE, SERVER_SET_DATASIZE),
-            'parity':   TelnetSubnegotiation(self, 'parity',   SET_PARITY,   SERVER_SET_PARITY),
+            'parity': TelnetSubnegotiation(self, 'parity', SET_PARITY, SERVER_SET_PARITY),
             'stopsize': TelnetSubnegotiation(self, 'stopsize', SET_STOPSIZE, SERVER_SET_STOPSIZE),
         }
         # There are more subnegotiation objects, combine all in one dictionary
         # for easy access
         self._rfc2217_options = {
-            'purge':    TelnetSubnegotiation(self, 'purge',    PURGE_DATA,   SERVER_PURGE_DATA),
-            'control':  TelnetSubnegotiation(self, 'control',  SET_CONTROL,  SERVER_SET_CONTROL),
+            'purge': TelnetSubnegotiation(self, 'purge', PURGE_DATA, SERVER_PURGE_DATA),
+            'control': TelnetSubnegotiation(self, 'control', SET_CONTROL, SERVER_SET_CONTROL),
         }
         self._rfc2217_options.update(self._rfc2217_port_settings)
         # cache for line and modem states that the server sends to us
@@ -446,8 +503,11 @@ class Serial(SerialBase):
                 await asyncio.wait_for(mandadory_done.wait(), self._network_timeout)
             except asyncio.TimeoutError:
                 raise SerialException(
-                    "Remote does not seem to support RFC2217 or BINARY mode {!r}".format(mandadory_options))
-            self.logger.info("Negotiated options: {}".format(self._telnet_options))
+                    "Remote does not seem to support RFC2217 or BINARY mode {!r}"
+                    .format(mandadory_options))
+            self.logger.info(
+                "Negotiated options: {}".format(
+                    self._telnet_options))
 
             tasks = []
             # fine, go on, set RFC 2271 specific things
@@ -459,7 +519,7 @@ class Serial(SerialBase):
                 await self._update_rts_state()
             await self.reset_input_buffer()
             await self.reset_output_buffer()
-        except:
+        except BaseException:
             await self.close()
             raise
 
@@ -505,11 +565,12 @@ class Serial(SerialBase):
         if self._socket:
             try:
                 await self._socket.close()
-            except:
+            except BaseException:
                 # ignore errors.
                 pass
         if self._thread:
-            await asyncio.wait_for(self._thread, 7)  # XXX more than socket timeout
+            # XXX more than socket timeout
+            await asyncio.wait_for(self._thread, 7)
             self._thread = None
             # in case of quick reconnects, give the server some time
             await asyncio.sleep(0.3)
@@ -528,7 +589,8 @@ class Serial(SerialBase):
                 'not starting with rfc2217:// ({!r})'.format(parts.scheme))
         try:
             # process options now, directly altering self
-            for option, values in urllib.parse.parse_qs(parts.query, True).items():
+            for option, values in urllib.parse.parse_qs(
+                    parts.query, True).items():
                 if option == 'logging':
                     self.logger.setLevel(LOGGER_LEVELS[values[0]])
                     self.logger.debug('enabled logging')
@@ -585,7 +647,8 @@ class Serial(SerialBase):
         try:
             await self._internal_raw_write(to_bytes(data).replace(IAC, IAC_DOUBLED))
         except socket.error as e:
-            raise SerialException("connection failed (socket error): {}".format(e))
+            raise SerialException(
+                "connection failed (socket error): {}".format(e))
         return len(data)
 
     @ensure_open
@@ -610,7 +673,9 @@ class Serial(SerialBase):
         Set break: Controls TXD. When active, to transmitting is
         possible.
         """
-        self.logger.info('set BREAK to {}'.format('active' if self._break_state else 'inactive'))
+        self.logger.info(
+            'set BREAK to {}'.format(
+                'active' if self._break_state else 'inactive'))
         if self._break_state:
             await self.rfc2217_set_control(SET_CONTROL_BREAK_ON)
         else:
@@ -619,7 +684,9 @@ class Serial(SerialBase):
     @ensure_open
     async def _update_rts_state(self):
         """Set terminal status line: Request To Send."""
-        self.logger.info('set RTS to {}'.format('active' if self._rts_state else 'inactive'))
+        self.logger.info(
+            'set RTS to {}'.format(
+                'active' if self._rts_state else 'inactive'))
         if self._rts_state:
             await self.rfc2217_set_control(SET_CONTROL_RTS_ON)
         else:
@@ -628,7 +695,9 @@ class Serial(SerialBase):
     @ensure_open
     async def _update_dtr_state(self):
         """Set terminal status line: Data Terminal Ready."""
-        self.logger.info('set DTR to {}'.format('active' if self._dtr_state else 'inactive'))
+        self.logger.info(
+            'set DTR to {}'.format(
+                'active' if self._dtr_state else 'inactive'))
         if self._dtr_state:
             await self.rfc2217_set_control(SET_CONTROL_DTR_ON)
         else:
@@ -674,7 +743,8 @@ class Serial(SerialBase):
                     continue
                 except socket.error as e:
                     # connection fails -> terminate loop
-                    self.logger.debug("socket error in reader thread: {}".format(e))
+                    self.logger.debug(
+                        "socket error in reader thread: {}".format(e))
                     await self._read_buffer.put(None)
                     break
                 self.logger.debug('RECV %r', data)
@@ -708,7 +778,8 @@ class Serial(SerialBase):
                             mode = M_NORMAL
                         elif byte == SE:
                             # sub option end -> process it now
-                            self._telnet_process_subnegotiation(bytes(suboption))
+                            self._telnet_process_subnegotiation(
+                                bytes(suboption))
                             suboption = None
                             mode = M_NORMAL
                         elif byte in (DO, DONT, WILL, WONT):
@@ -749,7 +820,8 @@ class Serial(SerialBase):
             # only answer to positive requests and deny them
             if command == WILL or command == DO:
                 await self.telnet_send_option((DONT if command == WILL else WONT), option)
-                self.logger.warning("rejected Telnet option: {!r}".format(option))
+                self.logger.warning(
+                    "rejected Telnet option: {!r}".format(option))
 
     def _telnet_process_subnegotiation(self, suboption):
         """Process subnegotiation, the data between IAC SB and IAC SE."""
@@ -757,10 +829,14 @@ class Serial(SerialBase):
             option = suboption[1:2]
             if option == SERVER_NOTIFY_LINESTATE and len(suboption) >= 3:
                 self._linestate = ord(suboption[2:3])  # ensure it is a number
-                self.logger.info("NOTIFY_LINESTATE: {}".format(self._linestate))
+                self.logger.info(
+                    "NOTIFY_LINESTATE: {}".format(
+                        self._linestate))
             elif option == SERVER_NOTIFY_MODEMSTATE and len(suboption) >= 3:
                 self._modemstate = ord(suboption[2:3])  # ensure it is a number
-                self.logger.info("NOTIFY_MODEMSTATE: {}".format(self._modemstate))
+                self.logger.info(
+                    "NOTIFY_MODEMSTATE: {}".format(
+                        self._modemstate))
                 # update time when we think that a poll would make sense
                 self._modemstate_timeout.restart(0.3)
             elif option == FLOWCONTROL_SUSPEND:
@@ -770,13 +846,15 @@ class Serial(SerialBase):
             else:
                 for item in self._rfc2217_options.values():
                     if item.ack_option == option:
-                        #~ print "processing COM_PORT_OPTION: %r" % list(suboption[1:])
+                        # ~ print "processing COM_PORT_OPTION: %r" % list(suboption[1:])
                         item.check_answer(bytes(suboption[2:]))
                         break
                 else:
-                    self.logger.warning("ignoring COM_PORT_OPTION: {!r}".format(suboption))
+                    self.logger.warning(
+                        "ignoring COM_PORT_OPTION: {!r}".format(suboption))
         else:
-            self.logger.warning("ignoring subnegotiation: {!r}".format(suboption))
+            self.logger.warning(
+                "ignoring subnegotiation: {!r}".format(suboption))
 
     # - outgoing telnet commands and options
 
@@ -809,7 +887,8 @@ class Serial(SerialBase):
         """
         item = self._rfc2217_options['purge']
         await item.set(value)  # transmit desired purge type
-        await asyncio.wait_for(item.wait(), self._network_timeout)  # wait for acknowledge from the server
+        # wait for acknowledge from the server
+        await asyncio.wait_for(item.wait(), self._network_timeout)
 
     async def rfc2217_set_control(self, value):
         """transmit change of control line to remote"""
@@ -819,17 +898,19 @@ class Serial(SerialBase):
             # answers are ignored when option is set. compatibility mode for
             # servers that answer, but not the expected one... (or no answer
             # at all) i.e. sredird
-            await asyncio.sleep(0.1)  # this helps getting the unit tests passed
+            # this helps getting the unit tests passed
+            await asyncio.sleep(0.1)
         else:
-            await asyncio.wait_for(item.wait(), self._network_timeout)  # wait for acknowledge from the server
+            # wait for acknowledge from the server
+            await asyncio.wait_for(item.wait(), self._network_timeout)
 
     def rfc2217_flow_server_ready(self):
         """\
         check if server is ready to receive data. block for some time when
         not.
         """
-        #~ if self._remote_suspend_flow:
-        #~     wait---
+        # ~ if self._remote_suspend_flow:
+        # ~     wait---
 
     async def get_modem_state(self):
         """\
@@ -866,11 +947,11 @@ class Serial(SerialBase):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
-        format='%(threadName)-12s %(levelname)s %(asctime)-15s %(name)s: %(message)s')
+                        format='%(threadName)-12s %(levelname)s %(asctime)-15s %(name)s: %(message)s')
     s = Serial('rfc2217://localhost:2217')
     message = b'bla ble bli\n'
     s.write(message)
     assert s.readline() == message
-    message = 2048*b'Hello! ' + b'\n'
+    message = 2048 * b'Hello! ' + b'\n'
     s.write(message)
     assert s.readline() == message
