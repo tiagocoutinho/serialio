@@ -455,7 +455,7 @@ class SerialBase:
     async def readline(self, eol=None):
         if eol is None:
             eol = self._eol
-        return await self.readuntil(expected=eol)
+        return await self.readuntil(separator=eol)
 
     async def readlines(self, n, eol=None):
         if eol is None:
@@ -463,8 +463,8 @@ class SerialBase:
         return [await self.readline(eol=eol) for _ in range(n)]
 
     async def write_readline(self, data, eol=None):
-        await self._write(data)
-        return await self._readline(eol=eol)
+        await self.write(data)
+        return await self.readline(eol=eol)
 
     async def write_readlines(self, data, n, eol=None):
         await self.write(data)
