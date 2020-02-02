@@ -11,7 +11,7 @@ simple REQ-REP communication protocols (example:
 So far, only serial line over RFC2217 protocol and raw socket are available.
 It should be compatible with:
 
-* ser2net bridge with telnet and raw configurations
+* ser2net bridge with telnet(RFC2217) and raw configurations
 * gserial[ser2tcp] bridge (RFC2217)
 
 
