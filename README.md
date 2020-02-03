@@ -115,3 +115,5 @@ await sl.write_readline(b'*IDN?\n', eol=b'\r')
 ### Streams
 
 TODO: Write this chapter
+
+[pypi]: https://img.shields.io/pypi/pyversions/serialio.svg
