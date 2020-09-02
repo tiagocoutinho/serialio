@@ -10,11 +10,8 @@ import sockio.aio
 
 import serial
 from serial import (
-    SerialException, portNotOpenError,
+    Serial, SerialException, portNotOpenError,
     Timeout, iterbytes, to_bytes)
-
-from ..base import SerialBase
-
 
 log = logging.getLogger('serialio.rfc2217')
 
@@ -358,7 +355,7 @@ class TelnetSubnegotiation(object):
             "SB Answer {} -> {!r} -> {}".format(self.name, suboption, self.state))
 
 
-def ensure_open(f):
+def assert_open(f):
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
         if not self.is_open:
@@ -372,7 +369,7 @@ class Serial(SerialBase):
     BAUDRATES = (50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800,
                  9600, 19200, 38400, 57600, 115200)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, port=None, **kwargs):
         self._socket = None
         self._linestate = 0
         self._modemstate = None
@@ -386,7 +383,8 @@ class Serial(SerialBase):
         self._rfc2217_port_settings = None
         self._rfc2217_options = None
         self._read_buffer = None
-        super(Serial, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
+        self.port = port
 
     async def open(self):
         """\
@@ -613,7 +611,7 @@ class Serial(SerialBase):
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
     @property
-    @ensure_open
+    @assert_open
     def in_waiting(self):
         """Return the number of bytes currently in the input buffer."""
         return not self._read_buffer.empty()
@@ -625,7 +623,7 @@ class Serial(SerialBase):
         """
         return await self._read(size=size)
 
-    @ensure_open
+    @assert_open
     async def _read(self, size=1):
         data = bytearray()
         while len(data) < size:
@@ -637,7 +635,7 @@ class Serial(SerialBase):
             data += buf
         return bytes(data)
 
-    @ensure_open
+    @assert_open
     async def write(self, data):
         """\
         Output the given byte string over the serial port. Can block if the
@@ -651,7 +649,7 @@ class Serial(SerialBase):
                 "connection failed (socket error): {}".format(e))
         return len(data)
 
-    @ensure_open
+    @assert_open
     async def reset_input_buffer(self):
         """Clear input buffer, discarding all that is in the buffer."""
         await self.rfc2217_send_purge(PURGE_RECEIVE_BUFFER)
@@ -659,7 +657,7 @@ class Serial(SerialBase):
         while self._read_buffer.qsize():
             self._read_buffer.get(False)
 
-    @ensure_open
+    @assert_open
     async def reset_output_buffer(self):
         """\
         Clear output buffer, aborting the current output and
@@ -667,7 +665,7 @@ class Serial(SerialBase):
         """
         await self.rfc2217_send_purge(PURGE_TRANSMIT_BUFFER)
 
-    @ensure_open
+    @assert_open
     async def _update_break_state(self):
         """\
         Set break: Controls TXD. When active, to transmitting is
@@ -681,7 +679,7 @@ class Serial(SerialBase):
         else:
             await self.rfc2217_set_control(SET_CONTROL_BREAK_OFF)
 
-    @ensure_open
+    @assert_open
     async def _update_rts_state(self):
         """Set terminal status line: Request To Send."""
         self.logger.info(
@@ -692,7 +690,7 @@ class Serial(SerialBase):
         else:
             await self.rfc2217_set_control(SET_CONTROL_RTS_OFF)
 
-    @ensure_open
+    @assert_open
     async def _update_dtr_state(self):
         """Set terminal status line: Data Terminal Ready."""
         self.logger.info(
@@ -704,25 +702,25 @@ class Serial(SerialBase):
             await self.rfc2217_set_control(SET_CONTROL_DTR_OFF)
 
     @property
-    @ensure_open
+    @assert_open
     async def cts(self):
         """Read terminal status line: Clear To Send."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_CTS)
 
     @property
-    @ensure_open
+    @assert_open
     async def dsr(self):
         """Read terminal status line: Data Set Ready."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_DSR)
 
     @property
-    @ensure_open
+    @assert_open
     async def ri(self):
         """Read terminal status line: Ring Indicator."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_RI)
 
     @property
-    @ensure_open
+    @assert_open
     async def cd(self):
         """Read terminal status line: Carrier Detect."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_CD)

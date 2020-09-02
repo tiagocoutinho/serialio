@@ -37,7 +37,7 @@ setup(
     install_requires=['pyserial', 'sockio'],
     long_description=description,
     long_description_content_type='text/markdown',
-    keywords='socket, serial, rcf2217, asyncio, rs232',
+    keywords='serial, rs232, rcf2217, socket, tcp, ser2net',
     packages=find_packages(),
     setup_requires=setup_requirements,
     test_suite='tests',
