@@ -369,7 +369,7 @@ class Serial(SerialBase):
     BAUDRATES = (50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800,
                  9600, 19200, 38400, 57600, 115200)
 
-    def __init__(self, *args, port=None, **kwargs):
+    def __init__(self, port=None, **kwargs):
         self._socket = None
         self._linestate = 0
         self._modemstate = None
@@ -383,7 +383,7 @@ class Serial(SerialBase):
         self._rfc2217_port_settings = None
         self._rfc2217_options = None
         self._read_buffer = None
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         self.port = port
 
     async def open(self):
