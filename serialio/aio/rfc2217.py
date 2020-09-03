@@ -637,6 +637,19 @@ class Serial(SerialBase):
         return bytes(data)
 
     @assert_open
+    async def readline(self):
+        data = bytearray()
+        buf = None
+        while buf != serial.LF:
+            if self._thread is None or self._thread.done():
+                raise SerialException('connection failed (reader thread died)')
+            buf = await self._read_buffer.get()
+            if buf is None:
+                break
+            data += buf
+        return bytes(data)
+
+    @assert_open
     async def write(self, data):
         """\
         Output the given byte string over the serial port. Can block if the
