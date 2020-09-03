@@ -383,6 +383,7 @@ class Serial(SerialBase):
         self._rfc2217_port_settings = None
         self._rfc2217_options = None
         self._read_buffer = None
+        self.logger = log
         super().__init__(**kwargs)
         self.port = port
 
