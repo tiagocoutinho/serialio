@@ -615,7 +615,7 @@ class Serial(SerialBase):
     @assert_open
     def in_waiting(self):
         """Return the number of bytes currently in the input buffer."""
-        return not self._read_buffer.empty()
+        return self._read_buffer.qsize()
 
     async def read(self, size=1):
         """\
