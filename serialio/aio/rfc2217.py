@@ -10,7 +10,7 @@ import sockio.aio
 
 import serial
 from serial import (
-    Serial, SerialException, portNotOpenError,
+    SerialBase, SerialException, portNotOpenError,
     Timeout, iterbytes, to_bytes)
 
 log = logging.getLogger('serialio.rfc2217')
