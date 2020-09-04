@@ -10,7 +10,7 @@ import serial.rfc2217
 
 from .base import (
     SerialBase, SerialException, portNotOpenError, Timeout,
-    module_symbols, assert_open, async_assert_open, iterbytes, to_bytes
+    module_symbols, assert_open, async_assert_open, iterbytes
 )
 
 
@@ -451,7 +451,7 @@ class Serial(SerialBase):
         closed.
         """
         try:
-            await self._internal_raw_write(to_bytes(data).replace(IAC, IAC_DOUBLED))
+            await self._internal_raw_write(bytes(data).replace(IAC, IAC_DOUBLED))
         except socket.error as e:
             raise SerialException(
                 "connection failed (socket error): {}".format(e))

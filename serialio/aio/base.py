@@ -55,9 +55,6 @@ def iterbytes(b):
             break
 
 
-to_bytes = bytes
-
-
 class Timeout(object):
     """\
     Abstraction for timeout operations.

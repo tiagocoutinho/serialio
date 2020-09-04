@@ -263,7 +263,7 @@ class Serial(SerialBase, PlatformSpecific):
 
     @async_assert_open
     async def write(self, data):
-        d = serial.to_bytes(data)
+        d = bytes(data)
         tx_len = length = len(d)
         while tx_len > 0:
             n = await self._write1(d)
