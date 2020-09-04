@@ -25,7 +25,7 @@ Here is a summary of what is forseen and what is implemented
 
 | Concurrency   | Local  | RFC2217 | Raw TCP |
 | ------------- |:------:|:-------:|:-------:|
-| asyncio       |   N    |    Y    |    Y    |
+| asyncio       |   Y    |    Y    |    Y    |
 | classic sync  |   N    |    N    |    N    |
 | conc. futures |   N    |    N    |    N    |
 
