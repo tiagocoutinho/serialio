@@ -23,7 +23,7 @@ def assert_open(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         if not self.is_open:
-            raise serial.portNotOpenError
+            raise portNotOpenError
         return func(self, *args, **kwargs)
 
     return wrapper
@@ -33,7 +33,7 @@ def async_assert_open(func):
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
         if not self.is_open:
-            raise serial.portNotOpenError
+            raise portNotOpenError
         return await func(self, *args, **kwargs)
 
     return wrapper
@@ -431,14 +431,14 @@ class SerialBase:
 
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
-    async def readuntil(self, separator=serial.LF, size=None):
+    async def readuntil(self, separator=LF, size=None):
         """\
         Read until an expected sequence is found ('\n' by default) or the size
         is exceeded.
         """
         lenterm = len(separator)
         line = bytearray()
-        timeout = serial.Timeout(self._timeout)
+        timeout = Timeout(self._timeout)
         while True:
             c = await self.read(1)
             if c:
