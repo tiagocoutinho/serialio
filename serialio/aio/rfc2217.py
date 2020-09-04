@@ -230,7 +230,9 @@ class Serial(SerialBase):
         super().__init__(*args, **kwargs)
 
     async def _open_connection(self, host, port):
-        return await _open_connection(host, port, no_delay=self._no_delay, tos=self._tos)
+        return await _open_connection(
+            host, port, no_delay=self._no_delay, tos=self._tos
+        )
 
     async def open(self):
         self._ignore_set_control_answer = False
@@ -496,7 +498,7 @@ class Serial(SerialBase):
             data += buf
         return bytes(data)
 
-    @assert_open
+    @async_assert_open
     async def write(self, data):
         """\
         Output the given byte string over the serial port. Can block if the
@@ -509,7 +511,7 @@ class Serial(SerialBase):
             raise SerialException("connection failed (socket error): {}".format(e))
         return len(data)
 
-    @assert_open
+    @async_assert_open
     async def reset_input_buffer(self):
         """Clear input buffer, discarding all that is in the buffer."""
         await self.rfc2217_send_purge(PURGE_RECEIVE_BUFFER)
@@ -517,7 +519,7 @@ class Serial(SerialBase):
         while self._read_buffer.qsize():
             self._read_buffer.get(False)
 
-    @assert_open
+    @async_assert_open
     async def reset_output_buffer(self):
         """\
         Clear output buffer, aborting the current output and
@@ -525,7 +527,7 @@ class Serial(SerialBase):
         """
         await self.rfc2217_send_purge(PURGE_TRANSMIT_BUFFER)
 
-    @assert_open
+    @async_assert_open
     async def _update_break_state(self):
         """\
         Set break: Controls TXD. When active, to transmitting is
@@ -539,7 +541,7 @@ class Serial(SerialBase):
         else:
             await self.rfc2217_set_control(SET_CONTROL_BREAK_OFF)
 
-    @assert_open
+    @async_assert_open
     async def _update_rts_state(self):
         """Set terminal status line: Request To Send."""
         self.logger.info(
@@ -550,7 +552,7 @@ class Serial(SerialBase):
         else:
             await self.rfc2217_set_control(SET_CONTROL_RTS_OFF)
 
-    @assert_open
+    @async_assert_open
     async def _update_dtr_state(self):
         """Set terminal status line: Data Terminal Ready."""
         self.logger.info(
@@ -562,25 +564,25 @@ class Serial(SerialBase):
             await self.rfc2217_set_control(SET_CONTROL_DTR_OFF)
 
     @property
-    @assert_open
+    @async_assert_open
     async def cts(self):
         """Read terminal status line: Clear To Send."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_CTS)
 
     @property
-    @assert_open
+    @async_assert_open
     async def dsr(self):
         """Read terminal status line: Data Set Ready."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_DSR)
 
     @property
-    @assert_open
+    @async_assert_open
     async def ri(self):
         """Read terminal status line: Ring Indicator."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_RI)
 
     @property
-    @assert_open
+    @async_assert_open
     async def cd(self):
         """Read terminal status line: Carrier Detect."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_CD)
