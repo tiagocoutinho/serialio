@@ -2,20 +2,19 @@ import socket
 import struct
 import asyncio
 import logging
-import functools
 import urllib.parse
 
 import sockio.aio
 
-from serial import (
-    SerialBase, SerialException, portNotOpenError,
-    Timeout, iterbytes, to_bytes)
 import serial.rfc2217
 
-def __expose(mod):
-    elems = {k: getattr(mod, k) for k in dir(mod) if k.isupper()}
-    globals().update(elems)
-__expose(serial.rfc2217)
+from .base import (
+    SerialBase, SerialException, portNotOpenError, Timeout,
+    module_symbols, assert_open, async_assert_open, iterbytes, to_bytes
+)
+
+
+globals().update(module_symbols(serial.rfc2217))
 
 
 log = logging.getLogger('serialio.rfc2217')
@@ -168,15 +167,6 @@ class TelnetSubnegotiation(object):
             "SB Answer {} -> {!r} -> {}".format(self.name, suboption, self.state))
 
 
-def assert_open(f):
-    @functools.wraps(f)
-    def wrapper(self, *args, **kwargs):
-        if not self.is_open:
-            raise portNotOpenError
-        return f(self, *args, **kwargs)
-    return wrapper
-
-
 # It was very tempting to inherit from serial.rfc2217.Serial.
 # This would result in being extremely dependent on its implementation details.
 # There would be a high risk that this would become incompatible with several
@@ -187,7 +177,7 @@ class Serial(SerialBase):
 
     BAUDRATES = serial.rfc2217.Serial.BAUDRATES
 
-    def __init__(self, port=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         self._thread = None
         self._socket = None
         self._linestate = 0
@@ -203,8 +193,7 @@ class Serial(SerialBase):
         self._rfc2217_options = None
         self._read_buffer = None
         self.logger = log
-        super().__init__(**kwargs)
-        self.port = port
+        super().__init__(*args, **kwargs)
 
     def _create_connection(self, host, port):
         return sockio.aio.TCP(host, port, auto_reconnect=False)
@@ -442,23 +431,10 @@ class Serial(SerialBase):
         """
         return await self._read(size=size)
 
-    @assert_open
+    @async_assert_open
     async def _read(self, size=1):
         data = bytearray()
         while len(data) < size:
-            if self._thread is None or self._thread.done():
-                raise SerialException('connection failed (reader thread died)')
-            buf = await self._read_buffer.get()
-            if buf is None:
-                break
-            data += buf
-        return bytes(data)
-
-    @assert_open
-    async def readline(self):
-        data = bytearray()
-        buf = None
-        while buf != serial.LF:
             if self._thread is None or self._thread.done():
                 raise SerialException('connection failed (reader thread died)')
             buf = await self._read_buffer.get()
