@@ -25,6 +25,7 @@ def assert_open(func):
         if not self.is_open:
             raise serial.portNotOpenError
         return func(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -34,6 +35,7 @@ def async_assert_open(func):
         if not self.is_open:
             raise serial.portNotOpenError
         return await func(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -122,7 +124,7 @@ class SerialBase:
         dsrdtr=False,
         inter_byte_timeout=None,
         exclusive=None,
-        eol=LF
+        eol=LF,
     ):
         self.is_open = False
         self.name = port
@@ -246,7 +248,7 @@ class SerialBase:
         """Change timeout setting."""
         if timeout is not None:
             try:
-                timeout + 1     # test if it's a number, will throw a TypeError if not...
+                timeout + 1  # test if it's a number, will throw a TypeError if not...
             except TypeError:
                 raise ValueError("Not a valid timeout: {!r}".format(timeout))
             if timeout < 0:
@@ -266,7 +268,7 @@ class SerialBase:
             if ic_timeout < 0:
                 raise ValueError("Not a valid timeout: {!r}".format(ic_timeout))
             try:
-                ic_timeout + 1     # test if it's a number, will throw a TypeError if not...
+                ic_timeout + 1  # test if it's a number, will throw a TypeError if not...
             except TypeError:
                 raise ValueError("Not a valid timeout: {!r}".format(ic_timeout))
 

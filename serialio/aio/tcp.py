@@ -6,7 +6,7 @@ import serial
 import sockio.aio
 
 
-log = logging.getLogger('serialio.tcp.aio')
+log = logging.getLogger("serialio.tcp.aio")
 
 
 def assert_open(func):
@@ -15,6 +15,7 @@ def assert_open(func):
         if not self.is_open:
             raise serial.portNotOpenError
         return func(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -37,7 +38,9 @@ class Serial(serial.SerialBase):
 
     async def open(self):
         if self._port is None:
-            raise serial.SerialException("Port must be configured before it can be used.")
+            raise serial.SerialException(
+                "Port must be configured before it can be used."
+            )
         if self.is_open:
             raise serial.SerialException("Port is already open.")
         url = urllib.parse.urlparse(self._port)
@@ -106,4 +109,3 @@ class Serial(serial.SerialBase):
     @assert_open
     async def writelines_readlines(self, lines, n=None, eol=None):
         return await self._socket.writelines_readlines(lines, n=n, eol=eol)
-
