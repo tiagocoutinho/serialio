@@ -17,6 +17,9 @@ class Serial(SerialBase):
         self.logger = log
         super().__init__(*args, **kwargs)
 
+    def _do_disconnect(self, *args):
+        self.is_open = False
+
     @property
     @assert_open
     def in_waiting(self):
@@ -36,16 +39,16 @@ class Serial(SerialBase):
         url = urllib.parse.urlparse(self._port)
         host, port = url.hostname, url.port
         self._socket = sockio.aio.TCP(
-            host, port, eol=self._eol, timeout=self._timeout, auto_reconnect=False
+            host, port, eol=self._eol, timeout=self._timeout, auto_reconnect=False,
+            on_eof_received=self._do_disconnect, on_connection_lost=self._do_disconnect
         )
         await self._socket.open()
         self.is_open = True
 
     async def close(self):
-        if self.is_open:
-            if self._socket:
-                await self._socket.close()
-            self.is_open = False
+        if self._socket:
+            await self._socket.close()
+        self.is_open = False
 
     @async_assert_open
     async def read(self, size=1):
