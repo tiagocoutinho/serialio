@@ -2,9 +2,8 @@ import socket
 import struct
 import asyncio
 import logging
-import urllib.parse
 
-import sockio.aio
+import urllib.parse
 
 import serial.rfc2217
 
@@ -21,6 +20,13 @@ from .base import (
 
 
 globals().update(module_symbols(serial.rfc2217))
+
+
+IPTOS_NORMAL = 0x0
+IPTOS_LOWDELAY = 0x10
+IPTOS_THROUGHPUT = 0x08
+IPTOS_RELIABILITY = 0x04
+IPTOS_MINCOST = 0x02
 
 
 log = logging.getLogger("serialio.rfc2217")
@@ -184,6 +190,14 @@ class TelnetSubnegotiation(object):
         )
 
 
+async def _open_connection(host, port, no_delay=True, tos=IPTOS_LOWDELAY):
+    reader, writer = await asyncio.open_connection(host, port)
+    sock = writer.transport.get_extra_info("socket")
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    sock.setsockopt(socket.SOL_IP, socket.IP_TOS, tos)
+    return reader, writer
+
+
 # It was very tempting to inherit from serial.rfc2217.Serial.
 # This would result in being extremely dependent on its implementation details.
 # There would be a high risk that this would become incompatible with several
@@ -210,11 +224,13 @@ class Serial(SerialBase):
         self._rfc2217_port_settings = None
         self._rfc2217_options = None
         self._read_buffer = None
+        self._no_delay = kwargs.pop("no_delay", True)
+        self._tos = kwargs.pop("tos", IPTOS_LOWDELAY)
         self.logger = log
         super().__init__(*args, **kwargs)
 
-    def _create_connection(self, host, port):
-        return sockio.aio.TCP(host, port, auto_reconnect=False)
+    async def _open_connection(self, host, port):
+        return await _open_connection(host, port, no_delay=self._no_delay, tos=self._tos)
 
     async def open(self):
         self._ignore_set_control_answer = False
@@ -227,8 +243,7 @@ class Serial(SerialBase):
         host, port = self.from_url(self._port)
 
         try:
-            self._socket = self._create_connection(host, port)
-            await self._socket.open()
+            self._socket = await self._open_connection(host, port)
         except Exception as msg:
             self._socket = None
             raise SerialException("Could not open port {}: {}".format(self.port, msg))
@@ -403,8 +418,11 @@ class Serial(SerialBase):
         """Close port"""
         self.is_open = False
         if self._socket:
+            writer = self._socket[1]
             try:
-                await self._socket.close()
+                writer.close()
+                if hasattr(writer, "wait_closed"):
+                    await writer.wait_closed()
             except BaseException:
                 # ignore errors.
                 pass
@@ -575,8 +593,9 @@ class Serial(SerialBase):
         suboption = None
         try:
             while self.is_open:
+                reader = self._socket[0]
                 try:
-                    data = await self._socket.read(1024)
+                    data = await reader.read(1024)
                 except socket.timeout:
                     # just need to get out of recv form time to time to check if
                     # still alive
@@ -697,9 +716,11 @@ class Serial(SerialBase):
 
     async def _internal_raw_write(self, data):
         """internal socket write with no data escaping. used to send telnet stuff."""
+        writer = self._socket[1]
+        self.logger.debug("SEND %r", data)
         async with self._write_lock:
-            self.logger.debug("SEND %r", data)
-            await self._socket.write(data)
+            writer.write(data)
+            await writer.drain()
 
     async def telnet_send_option(self, action, option):
         """Send DO, DONT, WILL, WONT."""
