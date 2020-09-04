@@ -1,16 +1,53 @@
 import io
 import time
+import array
 import asyncio
 import logging
+import functools
+
+import serial
+from serial import (
+    SerialException,
+    SerialTimeoutException,
+    writeTimeoutError,
+    portNotOpenError,
+)
+
+
+def module_symbols(mod, filter_func=str.isupper):
+    """return module symbols"""
+    return {k: getattr(mod, k) for k in dir(mod) if filter_func(k)}
+
+
+def assert_open(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if not self.is_open:
+            raise serial.portNotOpenError
+        return func(self, *args, **kwargs)
+    return wrapper
+
+
+def async_assert_open(func):
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        if not self.is_open:
+            raise serial.portNotOpenError
+        return await func(self, *args, **kwargs)
+    return wrapper
+
+
+globals().update(module_symbols(serial))
+
 
 # "for byte in data" fails for python3 as it returns ints instead of bytes
 def iterbytes(b):
-    """Iterate over bytes, returning bytes instead of ints (python3)"""
+    """Iterate over bytes, returning bytes instead of ints"""
     if isinstance(b, memoryview):
         b = b.tobytes()
     i = 0
     while True:
-        a = b[i:i + 1]
+        a = b[i : i + 1]
         i += 1
         if a:
             yield a
@@ -18,86 +55,22 @@ def iterbytes(b):
             break
 
 
-# all Python versions prior 3.x convert ``str([17])`` to '[17]' instead of '\x11'
-# so a simple ``bytes(sequence)`` doesn't work for all versions
-def to_bytes(seq):
-    """convert a sequence to a bytes type"""
-    if isinstance(seq, bytes):
-        return seq
-    elif isinstance(seq, bytearray):
-        return bytes(seq)
-    elif isinstance(seq, memoryview):
-        return seq.tobytes()
-    elif isinstance(seq, str):
-        raise TypeError(
-            'unicode strings are not supported, please encode to bytes: {!r}'.format(seq))
-    else:
-        # handle list of integers and bytes (one or more items) for Python 2
-        # and 3
-        return bytes(bytearray(seq))
-
-
-# create control bytes
-XON = to_bytes([17])
-XOFF = to_bytes([19])
-
-CR = to_bytes([13])
-LF = to_bytes([10])
-
-
-PARITY_NONE, PARITY_EVEN, PARITY_ODD, PARITY_MARK, PARITY_SPACE = 'N', 'E', 'O', 'M', 'S'
-STOPBITS_ONE, STOPBITS_ONE_POINT_FIVE, STOPBITS_TWO = (1, 1.5, 2)
-FIVEBITS, SIXBITS, SEVENBITS, EIGHTBITS = (5, 6, 7, 8)
-
-PARITY_NAMES = {
-    PARITY_NONE: 'None',
-    PARITY_EVEN: 'Even',
-    PARITY_ODD: 'Odd',
-    PARITY_MARK: 'Mark',
-    PARITY_SPACE: 'Space',
-}
-
-
-class SerialException(IOError):
-    """Base class for serial port related exceptions."""
-
-
-class SerialTimeoutException(SerialException):
-    """Write timeouts give an exception"""
-
-
-writeTimeoutError = SerialTimeoutException('Write timeout')
-portNotOpenError = SerialException('Attempting to use a port that is not open')
-
-
 class Timeout(object):
     """\
-    Abstraction for timeout operations. Using time.monotonic() if available
-    or time.time() in all other cases.
+    Abstraction for timeout operations.
 
     The class can also be initialized with 0 or None, in order to support
     non-blocking and fully blocking I/O operations. The attributes
     is_non_blocking and is_infinite are set accordingly.
     """
-    if hasattr(time, 'monotonic'):
-        # Timeout implementation with time.monotonic(). This function is only
-        # supported by Python 3.3 and above. It returns a time in seconds
-        # (float) just as time.time(), but is not affected by system clock
-        # adjustments.
-        TIME = time.monotonic
-    else:
-        # Timeout implementation with time.time(). This is compatible with all
-        # Python versions but has issues if the clock is adjusted while the
-        # timeout is running.
-        TIME = time.time
 
     def __init__(self, duration):
         """Initialize a timeout with given duration"""
-        self.is_infinite = (duration is None)
-        self.is_non_blocking = (duration == 0)
+        self.is_infinite = duration is None
+        self.is_non_blocking = duration == 0
         self.duration = duration
         if duration is not None:
-            self.target_time = self.TIME() + duration
+            self.target_time = time.monotonic() + duration
         else:
             self.target_time = None
 
@@ -112,10 +85,10 @@ class Timeout(object):
         elif self.is_infinite:
             return None
         else:
-            delta = self.target_time - self.TIME()
+            delta = self.target_time - time.monotonic()
             if delta > self.duration:
                 # clock jumped, recalculate
-                self.target_time = self.TIME() + self.duration
+                self.target_time = time.monotonic() + self.duration
                 return self.duration
             else:
                 return max(0, delta)
@@ -126,48 +99,31 @@ class Timeout(object):
         before.
         """
         self.duration = duration
-        self.target_time = self.TIME() + duration
+        self.target_time = time.monotonic() + duration
 
 
 class SerialBase:
-    """\
-    Serial port base class. Provides __init__ function and properties to
-    get/set port settings.
-    """
 
-    # default values, may be overridden in subclasses that do not support all
-    # values
-    BAUDRATES = (50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800,
-                 9600, 19200, 38400, 57600, 115200, 230400, 460800, 500000,
-                 576000, 921600, 1000000, 1152000, 1500000, 2000000, 2500000,
-                 3000000, 3500000, 4000000)
-    BYTESIZES = (FIVEBITS, SIXBITS, SEVENBITS, EIGHTBITS)
-    PARITIES = (
-        PARITY_NONE,
-        PARITY_EVEN,
-        PARITY_ODD,
-        PARITY_MARK,
-        PARITY_SPACE)
-    STOPBITS = (STOPBITS_ONE, STOPBITS_ONE_POINT_FIVE, STOPBITS_TWO)
+    BAUDRATES = serial.SerialBase.BAUDRATES
+    BYTESIZES = serial.SerialBase.BYTESIZES
+    PARITIES = serial.SerialBase.PARITIES
 
-    def __init__(self,
-                 port,
-                 baudrate=9600,
-                 bytesize=EIGHTBITS,
-                 parity=PARITY_NONE,
-                 stopbits=STOPBITS_ONE,
-                 xonxoff=False,
-                 rtscts=False,
-                 dsrdtr=False,
-                 exclusive=None,
-                 eol=b'\n',
-                 **kwargs):
-        """\
-        Initialize comm port object. If a "port" is given, then the port will be
-        opened immediately. Otherwise a Serial port object in closed state
-        is returned.
-        """
-
+    def __init__(
+        self,
+        port=None,
+        baudrate=9600,
+        bytesize=EIGHTBITS,
+        parity=PARITY_NONE,
+        stopbits=STOPBITS_ONE,
+        timeout=None,
+        xonxoff=False,
+        rtscts=False,
+        write_timeout=None,
+        dsrdtr=False,
+        inter_byte_timeout=None,
+        exclusive=None,
+        eol=LF
+    ):
         self.is_open = False
         self.name = port
         self._port = port
@@ -175,19 +131,18 @@ class SerialBase:
         self._bytesize = bytesize
         self._parity = parity
         self._stopbits = stopbits
+        self._timeout = timeout
         self._xonxoff = xonxoff
         self._rtscts = rtscts
         self._dsrdtr = dsrdtr
+        self._inter_byte_timeout = None
         self._rs485_mode = None  # disabled by default
         self._rts_state = True
         self._dtr_state = True
         self._break_state = False
         self._exclusive = exclusive
         self._eol = eol
-        self.logger = logging.getLogger('Serial({})'.format(self.name))
-        if kwargs:
-            raise ValueError(
-                'unexpected keyword arguments: {!r}'.format(kwargs))
+        self.logger = logging.getLogger("Serial({})".format(self.name))
 
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
@@ -201,6 +156,15 @@ class SerialBase:
     def port(self):
         """Get the current port setting"""
         return self._port
+
+    async def set_port(self, port):
+        was_open = self.is_open
+        if was_open:
+            await self.close()
+        self._port = port
+        self.name = port
+        if was_open:
+            await self.open()
 
     @property
     def baudrate(self):
@@ -269,9 +233,44 @@ class SerialBase:
     async def set_stopbits(self, stopbits):
         """Change stop bits size."""
         if stopbits not in self.STOPBITS:
-            raise ValueError(
-                "Not a valid stop bit size: {!r}".format(stopbits))
+            raise ValueError("Not a valid stop bit size: {!r}".format(stopbits))
         self._stopbits = stopbits
+        if self.is_open:
+            await self._reconfigure_port()
+
+    @property
+    def timeout(self):
+        return self._timeout
+
+    async def timeout(self, timeout):
+        """Change timeout setting."""
+        if timeout is not None:
+            try:
+                timeout + 1     # test if it's a number, will throw a TypeError if not...
+            except TypeError:
+                raise ValueError("Not a valid timeout: {!r}".format(timeout))
+            if timeout < 0:
+                raise ValueError("Not a valid timeout: {!r}".format(timeout))
+        self._timeout = timeout
+        if self.is_open:
+            await self._reconfigure_port()
+
+    @property
+    def inter_byte_timeout(self):
+        """Get the current inter-character timeout setting."""
+        return self._inter_byte_timeout
+
+    async def set_inter_byte_timeout(self, ic_timeout):
+        """Change inter-byte timeout setting."""
+        if ic_timeout is not None:
+            if ic_timeout < 0:
+                raise ValueError("Not a valid timeout: {!r}".format(ic_timeout))
+            try:
+                ic_timeout + 1     # test if it's a number, will throw a TypeError if not...
+            except TypeError:
+                raise ValueError("Not a valid timeout: {!r}".format(ic_timeout))
+
+        self._inter_byte_timeout = ic_timeout
         if self.is_open:
             await self._reconfigure_port()
 
@@ -359,16 +358,22 @@ class SerialBase:
 
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
-    _SAVED_SETTINGS = ('baudrate', 'bytesize', 'parity', 'stopbits', 'xonxoff',
-                       'dsrdtr', 'rtscts')
+    _SAVED_SETTINGS = (
+        "baudrate",
+        "bytesize",
+        "parity",
+        "stopbits",
+        "xonxoff",
+        "dsrdtr",
+        "rtscts",
+    )
 
     def get_settings(self):
         """\
         Get current port settings as a dictionary. For use with
         apply_settings().
         """
-        return dict([(key, getattr(self, '_' + key))
-                     for key in self._SAVED_SETTINGS])
+        return {key: getattr(self, "_" + key) for key in self._SAVED_SETTINGS}
 
     def apply_settings(self, d):
         """\
@@ -378,7 +383,8 @@ class SerialBase:
         """
         for key in self._SAVED_SETTINGS:
             if key in d and d[key] != getattr(
-                    self, '_' + key):   # check against internal "_" value
+                self, "_" + key
+            ):  # check against internal "_" value
                 # set non "_" value to use properties write function
                 setattr(self, key, d[key])
 
@@ -386,11 +392,14 @@ class SerialBase:
 
     def __repr__(self):
         """String representation of the current port settings and its state."""
-        return '{name}<id=0x{id:x}, open={p.is_open}>(port={p.port!r}, ' \
-               'baudrate={p.baudrate!r}, bytesize={p.bytesize!r}, parity={p.parity!r}, ' \
-               'stopbits={p.stopbits!r}, xonxoff={p.xonxoff!r}, ' \
-               'rtscts={p.rtscts!r}, dsrdtr={p.dsrdtr!r})'.format(
-                   name=self.__class__.__name__, id=id(self), p=self)
+        return (
+            "{name}<id=0x{id:x}, open={p.is_open}>(port={p.port!r}, "
+            "baudrate={p.baudrate!r}, bytesize={p.bytesize!r}, parity={p.parity!r}, "
+            "stopbits={p.stopbits!r}, xonxoff={p.xonxoff!r}, "
+            "rtscts={p.rtscts!r}, dsrdtr={p.dsrdtr!r})".format(
+                name=self.__class__.__name__, id=id(self), p=self
+            )
+        )
 
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
     # compatibility with io library
@@ -412,25 +421,33 @@ class SerialBase:
             b[:n] = data
         except TypeError as err:
             import array
+
             if not isinstance(b, array.array):
                 raise err
-            b[:n] = array.array('b', data)
+            b[:n] = array.array("b", data)
         return n
 
-    async def readuntil(self, separator=LF):
+    #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+
+    async def readuntil(self, separator=serial.LF, size=None):
         """\
         Read until an expected sequence is found ('\n' by default) or the size
         is exceeded.
         """
         lenterm = len(separator)
         line = bytearray()
+        timeout = serial.Timeout(self._timeout)
         while True:
             c = await self.read(1)
             if c:
                 line += c
                 if line[-lenterm:] == separator:
                     break
+                if size is not None and len(line) >= size:
+                    break
             else:
+                break
+            if timeout.expired():
                 break
         return bytes(line)
 
@@ -439,7 +456,7 @@ class SerialBase:
         return await self.read(self.in_waiting)
 
     async def writelines(self, lines):
-        return await self.write(b''.join(lines))
+        return await self.write(b"".join(lines))
 
     async def readline(self, eol=None):
         if eol is None:
@@ -465,13 +482,12 @@ class SerialBase:
         await self.writelines(lines)
         return await self.readlines(n, eol=eol)
 
+    @async_assert_open
     async def send_break(self, duration=0.25):
         """\
         Send break condition. Timed, returns to idle state after given
         duration.
         """
-        if not self.is_open:
-            raise portNotOpenError
         self.break_condition = True
         await asyncio.sleep(duration)
         self.break_condition = False

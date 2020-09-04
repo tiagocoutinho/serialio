@@ -2,213 +2,22 @@ import socket
 import struct
 import asyncio
 import logging
-import functools
-import telnetlib
 import urllib.parse
 
 import sockio.aio
 
-import serial
-from serial import (
-    SerialException, portNotOpenError,
-    Timeout, iterbytes, to_bytes)
+import serial.rfc2217
 
-from ..base import SerialBase
+from .base import (
+    SerialBase, SerialException, portNotOpenError, Timeout,
+    module_symbols, assert_open, async_assert_open, iterbytes
+)
+
+
+globals().update(module_symbols(serial.rfc2217))
 
 
 log = logging.getLogger('serialio.rfc2217')
-
-# telnet protocol characters
-SE = telnetlib.SE    # Subnegotiation End
-NOP = telnetlib.NOP   # No Operation
-DM = telnetlib.DM    # Data Mark
-BRK = telnetlib.BRK   # Break
-IP = telnetlib.IP    # Interrupt process
-AO = telnetlib.AO    # Abort output
-AYT = telnetlib.AYT   # Are You There
-EC = telnetlib.EC    # Erase Character
-EL = telnetlib.EL    # Erase Line
-GA = telnetlib.GA    # Go Ahead
-SB = telnetlib.SB    # Subnegotiation Begin
-WILL = telnetlib.WILL
-WONT = telnetlib.WONT
-DO = telnetlib.DO
-DONT = telnetlib.DONT
-IAC = telnetlib.IAC  # Interpret As Command
-IAC_DOUBLED = 2 * IAC
-
-# selected telnet options
-BINARY = telnetlib.BINARY    # 8-bit data path
-ECHO = telnetlib.ECHO      # echo
-SGA = telnetlib.SGA  # suppress go ahead
-
-# RFC2217
-COM_PORT_OPTION = b'\x2c'
-
-# Client to Access Server
-SET_BAUDRATE = b'\x01'
-SET_DATASIZE = b'\x02'
-SET_PARITY = b'\x03'
-SET_STOPSIZE = b'\x04'
-SET_CONTROL = b'\x05'
-NOTIFY_LINESTATE = b'\x06'
-NOTIFY_MODEMSTATE = b'\x07'
-FLOWCONTROL_SUSPEND = b'\x08'
-FLOWCONTROL_RESUME = b'\x09'
-SET_LINESTATE_MASK = b'\x0a'
-SET_MODEMSTATE_MASK = b'\x0b'
-PURGE_DATA = b'\x0c'
-
-SERVER_SET_BAUDRATE = b'\x65'
-SERVER_SET_DATASIZE = b'\x66'
-SERVER_SET_PARITY = b'\x67'
-SERVER_SET_STOPSIZE = b'\x68'
-SERVER_SET_CONTROL = b'\x69'
-SERVER_NOTIFY_LINESTATE = b'\x6a'
-SERVER_NOTIFY_MODEMSTATE = b'\x6b'
-SERVER_FLOWCONTROL_SUSPEND = b'\x6c'
-SERVER_FLOWCONTROL_RESUME = b'\x6d'
-SERVER_SET_LINESTATE_MASK = b'\x6e'
-SERVER_SET_MODEMSTATE_MASK = b'\x6f'
-SERVER_PURGE_DATA = b'\x70'
-
-# Request Com Port Flow Control Setting (outbound/both)
-SET_CONTROL_REQ_FLOW_SETTING = b'\x00'
-# Use No Flow Control (outbound/both)
-SET_CONTROL_USE_NO_FLOW_CONTROL = b'\x01'
-# Use XON/XOFF Flow Control (outbound/both)
-SET_CONTROL_USE_SW_FLOW_CONTROL = b'\x02'
-# Use HARDWARE Flow Control (outbound/both)
-SET_CONTROL_USE_HW_FLOW_CONTROL = b'\x03'
-SET_CONTROL_REQ_BREAK_STATE = b'\x04'         # Request BREAK State
-SET_CONTROL_BREAK_ON = b'\x05'                # Set BREAK State ON
-SET_CONTROL_BREAK_OFF = b'\x06'               # Set BREAK State OFF
-SET_CONTROL_REQ_DTR = b'\x07'                 # Request DTR Signal State
-SET_CONTROL_DTR_ON = b'\x08'                  # Set DTR Signal State ON
-SET_CONTROL_DTR_OFF = b'\x09'                 # Set DTR Signal State OFF
-SET_CONTROL_REQ_RTS = b'\x0a'                 # Request RTS Signal State
-SET_CONTROL_RTS_ON = b'\x0b'                  # Set RTS Signal State ON
-SET_CONTROL_RTS_OFF = b'\x0c'                 # Set RTS Signal State OFF
-# Request Com Port Flow Control Setting (inbound)
-SET_CONTROL_REQ_FLOW_SETTING_IN = b'\x0d'
-SET_CONTROL_USE_NO_FLOW_CONTROL_IN = b'\x0e'  # Use No Flow Control (inbound)
-# Use XON/XOFF Flow Control (inbound)
-SET_CONTROL_USE_SW_FLOW_CONTOL_IN = b'\x0f'
-# Use HARDWARE Flow Control (inbound)
-SET_CONTROL_USE_HW_FLOW_CONTOL_IN = b'\x10'
-# Use DCD Flow Control (outbound/both)
-SET_CONTROL_USE_DCD_FLOW_CONTROL = b'\x11'
-SET_CONTROL_USE_DTR_FLOW_CONTROL = b'\x12'    # Use DTR Flow Control (inbound)
-# Use DSR Flow Control (outbound/both)
-SET_CONTROL_USE_DSR_FLOW_CONTROL = b'\x13'
-
-LINESTATE_MASK_TIMEOUT = 128        # Time-out Error
-LINESTATE_MASK_SHIFTREG_EMPTY = 64  # Transfer Shift Register Empty
-LINESTATE_MASK_TRANSREG_EMPTY = 32  # Transfer Holding Register Empty
-LINESTATE_MASK_BREAK_DETECT = 16    # Break-detect Error
-LINESTATE_MASK_FRAMING_ERROR = 8    # Framing Error
-LINESTATE_MASK_PARTIY_ERROR = 4     # Parity Error
-LINESTATE_MASK_OVERRUN_ERROR = 2    # Overrun Error
-LINESTATE_MASK_DATA_READY = 1       # Data Ready
-
-# Receive Line Signal Detect (also known as Carrier Detect)
-MODEMSTATE_MASK_CD = 128
-MODEMSTATE_MASK_RI = 64             # Ring Indicator
-MODEMSTATE_MASK_DSR = 32            # Data-Set-Ready Signal State
-MODEMSTATE_MASK_CTS = 16            # Clear-To-Send Signal State
-MODEMSTATE_MASK_CD_CHANGE = 8       # Delta Receive Line Signal Detect
-MODEMSTATE_MASK_RI_CHANGE = 4       # Trailing-edge Ring Detector
-MODEMSTATE_MASK_DSR_CHANGE = 2      # Delta Data-Set-Ready
-MODEMSTATE_MASK_CTS_CHANGE = 1      # Delta Clear-To-Send
-
-PURGE_RECEIVE_BUFFER = b'\x01'      # Purge access server receive data buffer
-PURGE_TRANSMIT_BUFFER = b'\x02'     # Purge access server transmit data buffer
-PURGE_BOTH_BUFFERS = b'\x03'        # Purge both the access server receive data
-# buffer and the access server transmit data buffer
-
-# Request Com Port Flow Control Setting (outbound/both)
-SET_CONTROL_REQ_FLOW_SETTING = b'\x00'
-# Use No Flow Control (outbound/both)
-SET_CONTROL_USE_NO_FLOW_CONTROL = b'\x01'
-# Use XON/XOFF Flow Control (outbound/both)
-SET_CONTROL_USE_SW_FLOW_CONTROL = b'\x02'
-# Use HARDWARE Flow Control (outbound/both)
-SET_CONTROL_USE_HW_FLOW_CONTROL = b'\x03'
-SET_CONTROL_REQ_BREAK_STATE = b'\x04'         # Request BREAK State
-SET_CONTROL_BREAK_ON = b'\x05'                # Set BREAK State ON
-SET_CONTROL_BREAK_OFF = b'\x06'               # Set BREAK State OFF
-SET_CONTROL_REQ_DTR = b'\x07'                 # Request DTR Signal State
-SET_CONTROL_DTR_ON = b'\x08'                  # Set DTR Signal State ON
-SET_CONTROL_DTR_OFF = b'\x09'                 # Set DTR Signal State OFF
-SET_CONTROL_REQ_RTS = b'\x0a'                 # Request RTS Signal State
-SET_CONTROL_RTS_ON = b'\x0b'                  # Set RTS Signal State ON
-SET_CONTROL_RTS_OFF = b'\x0c'                 # Set RTS Signal State OFF
-# Request Com Port Flow Control Setting (inbound)
-SET_CONTROL_REQ_FLOW_SETTING_IN = b'\x0d'
-SET_CONTROL_USE_NO_FLOW_CONTROL_IN = b'\x0e'  # Use No Flow Control (inbound)
-# Use XON/XOFF Flow Control (inbound)
-SET_CONTROL_USE_SW_FLOW_CONTOL_IN = b'\x0f'
-# Use HARDWARE Flow Control (inbound)
-SET_CONTROL_USE_HW_FLOW_CONTOL_IN = b'\x10'
-# Use DCD Flow Control (outbound/both)
-SET_CONTROL_USE_DCD_FLOW_CONTROL = b'\x11'
-SET_CONTROL_USE_DTR_FLOW_CONTROL = b'\x12'    # Use DTR Flow Control (inbound)
-# Use DSR Flow Control (outbound/both)
-SET_CONTROL_USE_DSR_FLOW_CONTROL = b'\x13'
-
-LINESTATE_MASK_TIMEOUT = 128        # Time-out Error
-LINESTATE_MASK_SHIFTREG_EMPTY = 64  # Transfer Shift Register Empty
-LINESTATE_MASK_TRANSREG_EMPTY = 32  # Transfer Holding Register Empty
-LINESTATE_MASK_BREAK_DETECT = 16    # Break-detect Error
-LINESTATE_MASK_FRAMING_ERROR = 8    # Framing Error
-LINESTATE_MASK_PARTIY_ERROR = 4     # Parity Error
-LINESTATE_MASK_OVERRUN_ERROR = 2    # Overrun Error
-LINESTATE_MASK_DATA_READY = 1       # Data Ready
-
-# Receive Line Signal Detect (also known as Carrier Detect)
-MODEMSTATE_MASK_CD = 128
-MODEMSTATE_MASK_RI = 64             # Ring Indicator
-MODEMSTATE_MASK_DSR = 32            # Data-Set-Ready Signal State
-MODEMSTATE_MASK_CTS = 16            # Clear-To-Send Signal State
-MODEMSTATE_MASK_CD_CHANGE = 8       # Delta Receive Line Signal Detect
-MODEMSTATE_MASK_RI_CHANGE = 4       # Trailing-edge Ring Detector
-MODEMSTATE_MASK_DSR_CHANGE = 2      # Delta Data-Set-Ready
-MODEMSTATE_MASK_CTS_CHANGE = 1      # Delta Clear-To-Send
-
-PURGE_RECEIVE_BUFFER = b'\x01'      # Purge access server receive data buffer
-PURGE_TRANSMIT_BUFFER = b'\x02'     # Purge access server transmit data buffer
-PURGE_BOTH_BUFFERS = b'\x03'        # Purge both the access server receive data
-# buffer and the access server transmit data buffer
-
-
-RFC2217_PARITY_MAP = {
-    serial.PARITY_NONE: 1,
-    serial.PARITY_ODD: 2,
-    serial.PARITY_EVEN: 3,
-    serial.PARITY_MARK: 4,
-    serial.PARITY_SPACE: 5,
-}
-RFC2217_REVERSE_PARITY_MAP = dict((v, k)
-                                  for k, v in RFC2217_PARITY_MAP.items())
-
-RFC2217_STOPBIT_MAP = {
-    serial.STOPBITS_ONE: 1,
-    serial.STOPBITS_ONE_POINT_FIVE: 3,
-    serial.STOPBITS_TWO: 2,
-}
-RFC2217_REVERSE_STOPBIT_MAP = dict((v, k)
-                                   for k, v in RFC2217_STOPBIT_MAP.items())
-
-# Telnet filter states
-M_NORMAL = 0
-M_IAC_SEEN = 1
-M_NEGOTIATE = 2
-
-# TelnetOption and TelnetSubnegotiation states
-REQUESTED = 'REQUESTED'
-ACTIVE = 'ACTIVE'
-INACTIVE = 'INACTIVE'
-REALLY_INACTIVE = 'REALLY_INACTIVE'
 
 
 class TelnetOption(object):
@@ -358,21 +167,18 @@ class TelnetSubnegotiation(object):
             "SB Answer {} -> {!r} -> {}".format(self.name, suboption, self.state))
 
 
-def ensure_open(f):
-    @functools.wraps(f)
-    def wrapper(self, *args, **kwargs):
-        if not self.is_open:
-            raise portNotOpenError
-        return f(self, *args, **kwargs)
-    return wrapper
-
+# It was very tempting to inherit from serial.rfc2217.Serial.
+# This would result in being extremely dependent on its implementation details.
+# There would be a high risk that this would become incompatible with several
+# versions of serial library.
 
 class Serial(SerialBase):
+    """Serial port implementation for RFC 2217 remote serial ports."""
 
-    BAUDRATES = (50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800,
-                 9600, 19200, 38400, 57600, 115200)
+    BAUDRATES = serial.rfc2217.Serial.BAUDRATES
 
     def __init__(self, *args, **kwargs):
+        self._thread = None
         self._socket = None
         self._linestate = 0
         self._modemstate = None
@@ -381,18 +187,18 @@ class Serial(SerialBase):
         self._write_lock = None
         self._ignore_set_control_answer = False
         self._poll_modem_state = False
-        self._network_timeout = 1
+        self._network_timeout = 3
         self._telnet_options = None
         self._rfc2217_port_settings = None
         self._rfc2217_options = None
         self._read_buffer = None
-        super(Serial, self).__init__(*args, **kwargs)
+        self.logger = log
+        super().__init__(*args, **kwargs)
+
+    def _create_connection(self, host, port):
+        return sockio.aio.TCP(host, port, auto_reconnect=False)
 
     async def open(self):
-        """\
-        Open port with current settings. This may throw a SerialException
-        if the port cannot be opened.
-        """
         self._ignore_set_control_answer = False
         self._poll_modem_state = False
         self._network_timeout = 1
@@ -404,7 +210,7 @@ class Serial(SerialBase):
         host, port = self.from_url(self._port)
 
         try:
-            self._socket = sockio.aio.TCP(host, port, auto_reconnect=False)
+            self._socket = self._create_connection(host, port)
             await self._socket.open()
         except Exception as msg:
             self._socket = None
@@ -613,10 +419,10 @@ class Serial(SerialBase):
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
     @property
-    @ensure_open
+    @assert_open
     def in_waiting(self):
         """Return the number of bytes currently in the input buffer."""
-        return not self._read_buffer.empty()
+        return self._read_buffer.qsize()
 
     async def read(self, size=1):
         """\
@@ -625,7 +431,7 @@ class Serial(SerialBase):
         """
         return await self._read(size=size)
 
-    @ensure_open
+    @async_assert_open
     async def _read(self, size=1):
         data = bytearray()
         while len(data) < size:
@@ -637,7 +443,7 @@ class Serial(SerialBase):
             data += buf
         return bytes(data)
 
-    @ensure_open
+    @assert_open
     async def write(self, data):
         """\
         Output the given byte string over the serial port. Can block if the
@@ -645,13 +451,13 @@ class Serial(SerialBase):
         closed.
         """
         try:
-            await self._internal_raw_write(to_bytes(data).replace(IAC, IAC_DOUBLED))
+            await self._internal_raw_write(bytes(data).replace(IAC, IAC_DOUBLED))
         except socket.error as e:
             raise SerialException(
                 "connection failed (socket error): {}".format(e))
         return len(data)
 
-    @ensure_open
+    @assert_open
     async def reset_input_buffer(self):
         """Clear input buffer, discarding all that is in the buffer."""
         await self.rfc2217_send_purge(PURGE_RECEIVE_BUFFER)
@@ -659,7 +465,7 @@ class Serial(SerialBase):
         while self._read_buffer.qsize():
             self._read_buffer.get(False)
 
-    @ensure_open
+    @assert_open
     async def reset_output_buffer(self):
         """\
         Clear output buffer, aborting the current output and
@@ -667,7 +473,7 @@ class Serial(SerialBase):
         """
         await self.rfc2217_send_purge(PURGE_TRANSMIT_BUFFER)
 
-    @ensure_open
+    @assert_open
     async def _update_break_state(self):
         """\
         Set break: Controls TXD. When active, to transmitting is
@@ -681,7 +487,7 @@ class Serial(SerialBase):
         else:
             await self.rfc2217_set_control(SET_CONTROL_BREAK_OFF)
 
-    @ensure_open
+    @assert_open
     async def _update_rts_state(self):
         """Set terminal status line: Request To Send."""
         self.logger.info(
@@ -692,7 +498,7 @@ class Serial(SerialBase):
         else:
             await self.rfc2217_set_control(SET_CONTROL_RTS_OFF)
 
-    @ensure_open
+    @assert_open
     async def _update_dtr_state(self):
         """Set terminal status line: Data Terminal Ready."""
         self.logger.info(
@@ -704,25 +510,25 @@ class Serial(SerialBase):
             await self.rfc2217_set_control(SET_CONTROL_DTR_OFF)
 
     @property
-    @ensure_open
+    @assert_open
     async def cts(self):
         """Read terminal status line: Clear To Send."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_CTS)
 
     @property
-    @ensure_open
+    @assert_open
     async def dsr(self):
         """Read terminal status line: Data Set Ready."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_DSR)
 
     @property
-    @ensure_open
+    @assert_open
     async def ri(self):
         """Read terminal status line: Ring Indicator."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_RI)
 
     @property
-    @ensure_open
+    @assert_open
     async def cd(self):
         """Read terminal status line: Carrier Detect."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_CD)
@@ -943,15 +749,3 @@ class Serial(SerialBase):
         else:
             # never received a notification from the server
             raise SerialException("remote sends no NOTIFY_MODEMSTATE")
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(threadName)-12s %(levelname)s %(asctime)-15s %(name)s: %(message)s')
-    s = Serial('rfc2217://localhost:2217')
-    message = b'bla ble bli\n'
-    s.write(message)
-    assert s.readline() == message
-    message = 2048 * b'Hello! ' + b'\n'
-    s.write(message)
-    assert s.readline() == message
