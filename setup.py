@@ -8,42 +8,42 @@ from setuptools import setup, find_packages
 
 TESTING = any(x in sys.argv for x in ["test", "pytest"])
 
-setup_requirements = ['bumpversion']
+setup_requirements = ["bumpversion"]
 if TESTING:
     if sys.version_info < (3, 7):
-        print('testing serialio needs python >= 3.7')
+        print("testing serialio needs python >= 3.7")
         exit(1)
-    setup_requirements += ['pytest-runner']
-test_requirements = ['pytest', 'pytest-cov', 'pytest-asyncio']
+    setup_requirements += ["pytest-runner"]
+test_requirements = ["pytest", "pytest-cov", "pytest-asyncio"]
 
-with open('README.md') as f:
+with open("README.md") as f:
     description = f.read()
 
 setup(
-    name='serialio',
+    name="serialio",
     author="Jose Tiago Macara Coutinho",
-    author_email='coutinhotiago@gmail.com',
+    author_email="coutinhotiago@gmail.com",
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
-        'Natural Language :: English',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7'
+        "Development Status :: 2 - Pre-Alpha",
+        "Intended Audience :: Developers",
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
     ],
     description="Concurrency agnostic serialio API",
     license="GPLv3+",
-    install_requires=['pyserial', 'sockio'],
+    install_requires=["pyserial", "sockio"],
     long_description=description,
-    long_description_content_type='text/markdown',
-    keywords='serial, rs232, rcf2217, socket, tcp, ser2net',
+    long_description_content_type="text/markdown",
+    keywords="serial, rs232, rcf2217, socket, tcp, ser2net",
     packages=find_packages(),
     setup_requires=setup_requirements,
-    test_suite='tests',
+    test_suite="tests",
     tests_require=test_requirements,
-    url='https://tiagocoutinho.github.io/serialio/',
-    version='0.1.2',
-    python_requires='>=3.5',
-    zip_safe=True
+    url="https://tiagocoutinho.github.io/serialio/",
+    version="0.1.2",
+    python_requires=">=3.5",
+    zip_safe=True,
 )

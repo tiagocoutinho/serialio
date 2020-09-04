@@ -8,7 +8,13 @@ import termios
 import serial.serialposix
 from serial.serialposix import PlatformSpecific
 
-from .base import SerialBase, SerialException, module_symbols, assert_open, async_assert_open
+from .base import (
+    SerialBase,
+    SerialException,
+    module_symbols,
+    assert_open,
+    async_assert_open,
+)
 
 globals().update(module_symbols(serial.serialposix))
 TIOCM_DTR_str = serial.serialposix.TIOCM_DTR_str
@@ -17,7 +23,6 @@ TIOCM_zero_str = serial.serialposix.TIOCM_zero_str
 
 
 class Serial(SerialBase, PlatformSpecific):
-
     @property
     def _loop(self):
         return asyncio.get_running_loop()
@@ -54,8 +59,10 @@ class Serial(SerialBase, PlatformSpecific):
             self.fd = os.open(self.port, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
         except OSError as msg:
             self.fd = None
-            raise SerialException(msg.errno, "could not open port {}: {}".format(self._port, msg))
-        #~ fcntl.fcntl(self.fd, fcntl.F_SETFL, 0)  # set blocking
+            raise SerialException(
+                msg.errno, "could not open port {}: {}".format(self._port, msg)
+            )
+        # ~ fcntl.fcntl(self.fd, fcntl.F_SETFL, 0)  # set blocking
 
         try:
             await self._reconfigure_port(force_update=True)
@@ -94,54 +101,67 @@ class Serial(SerialBase, PlatformSpecific):
                 try:
                     fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except IOError as msg:
-                    raise SerialException(msg.errno, "Could not exclusively lock port {}: {}".format(self._port, msg))
+                    raise SerialException(
+                        msg.errno,
+                        "Could not exclusively lock port {}: {}".format(
+                            self._port, msg
+                        ),
+                    )
             else:
                 fcntl.flock(self.fd, fcntl.LOCK_UN)
 
         custom_baud = None
 
-        vmin = vtime = 0                # timeout is done via select
+        vmin = vtime = 0  # timeout is done via select
         if self._inter_byte_timeout is not None:
             vmin = 1
             vtime = int(self._inter_byte_timeout * 10)
         try:
             orig_attr = termios.tcgetattr(self.fd)
             iflag, oflag, cflag, lflag, ispeed, ospeed, cc = orig_attr
-        except termios.error as msg:      # if a port is nonexistent but has a /dev file, it'll fail here
+        except termios.error as msg:  # if a port is nonexistent but has a /dev file, it'll fail here
             raise SerialException("Could not configure port: {}".format(msg))
         # set up raw mode / no echo / binary
-        cflag |= (termios.CLOCAL | termios.CREAD)
-        lflag &= ~(termios.ICANON | termios.ECHO | termios.ECHOE |
-                   termios.ECHOK | termios.ECHONL |
-                   termios.ISIG | termios.IEXTEN)  # |termios.ECHOPRT
-        for flag in ('ECHOCTL', 'ECHOKE'):  # netbsd workaround for Erk
+        cflag |= termios.CLOCAL | termios.CREAD
+        lflag &= ~(
+            termios.ICANON
+            | termios.ECHO
+            | termios.ECHOE
+            | termios.ECHOK
+            | termios.ECHONL
+            | termios.ISIG
+            | termios.IEXTEN
+        )  # |termios.ECHOPRT
+        for flag in ("ECHOCTL", "ECHOKE"):  # netbsd workaround for Erk
             if hasattr(termios, flag):
                 lflag &= ~getattr(termios, flag)
 
         oflag &= ~(termios.OPOST | termios.ONLCR | termios.OCRNL)
         iflag &= ~(termios.INLCR | termios.IGNCR | termios.ICRNL | termios.IGNBRK)
-        if hasattr(termios, 'IUCLC'):
+        if hasattr(termios, "IUCLC"):
             iflag &= ~termios.IUCLC
-        if hasattr(termios, 'PARMRK'):
+        if hasattr(termios, "PARMRK"):
             iflag &= ~termios.PARMRK
 
         # setup baud rate
         try:
-            ispeed = ospeed = getattr(termios, 'B{}'.format(self._baudrate))
+            ispeed = ospeed = getattr(termios, "B{}".format(self._baudrate))
         except AttributeError:
             try:
                 ispeed = ospeed = self.BAUDRATE_CONSTANTS[self._baudrate]
             except KeyError:
-                #~ raise ValueError('Invalid baud rate: %r' % self._baudrate)
+                # ~ raise ValueError('Invalid baud rate: %r' % self._baudrate)
                 # may need custom baud rate, it isn't in our list.
-                ispeed = ospeed = getattr(termios, 'B38400')
+                ispeed = ospeed = getattr(termios, "B38400")
                 try:
                     custom_baud = int(self._baudrate)  # store for later
                 except ValueError:
-                    raise ValueError('Invalid baud rate: {!r}'.format(self._baudrate))
+                    raise ValueError("Invalid baud rate: {!r}".format(self._baudrate))
                 else:
                     if custom_baud < 0:
-                        raise ValueError('Invalid baud rate: {!r}'.format(self._baudrate))
+                        raise ValueError(
+                            "Invalid baud rate: {!r}".format(self._baudrate)
+                        )
 
         # setup char len
         cflag &= ~termios.CSIZE
@@ -154,54 +174,58 @@ class Serial(SerialBase, PlatformSpecific):
         elif self._bytesize == 5:
             cflag |= termios.CS5
         else:
-            raise ValueError('Invalid char len: {!r}'.format(self._bytesize))
+            raise ValueError("Invalid char len: {!r}".format(self._bytesize))
         # setup stop bits
         if self._stopbits == serial.STOPBITS_ONE:
             cflag &= ~(termios.CSTOPB)
         elif self._stopbits == serial.STOPBITS_ONE_POINT_FIVE:
-            cflag |= (termios.CSTOPB)  # XXX same as TWO.. there is no POSIX support for 1.5
+            cflag |= (
+                termios.CSTOPB
+            )  # XXX same as TWO.. there is no POSIX support for 1.5
         elif self._stopbits == serial.STOPBITS_TWO:
-            cflag |= (termios.CSTOPB)
+            cflag |= termios.CSTOPB
         else:
-            raise ValueError('Invalid stop bit specification: {!r}'.format(self._stopbits))
+            raise ValueError(
+                "Invalid stop bit specification: {!r}".format(self._stopbits)
+            )
         # setup parity
         iflag &= ~(termios.INPCK | termios.ISTRIP)
         if self._parity == serial.PARITY_NONE:
             cflag &= ~(termios.PARENB | termios.PARODD | CMSPAR)
         elif self._parity == serial.PARITY_EVEN:
             cflag &= ~(termios.PARODD | CMSPAR)
-            cflag |= (termios.PARENB)
+            cflag |= termios.PARENB
         elif self._parity == serial.PARITY_ODD:
             cflag &= ~CMSPAR
-            cflag |= (termios.PARENB | termios.PARODD)
+            cflag |= termios.PARENB | termios.PARODD
         elif self._parity == serial.PARITY_MARK and CMSPAR:
-            cflag |= (termios.PARENB | CMSPAR | termios.PARODD)
+            cflag |= termios.PARENB | CMSPAR | termios.PARODD
         elif self._parity == serial.PARITY_SPACE and CMSPAR:
-            cflag |= (termios.PARENB | CMSPAR)
+            cflag |= termios.PARENB | CMSPAR
             cflag &= ~(termios.PARODD)
         else:
-            raise ValueError('Invalid parity: {!r}'.format(self._parity))
+            raise ValueError("Invalid parity: {!r}".format(self._parity))
         # setup flow control
         # xonxoff
-        if hasattr(termios, 'IXANY'):
+        if hasattr(termios, "IXANY"):
             if self._xonxoff:
-                iflag |= (termios.IXON | termios.IXOFF)  # |termios.IXANY)
+                iflag |= termios.IXON | termios.IXOFF  # |termios.IXANY)
             else:
                 iflag &= ~(termios.IXON | termios.IXOFF | termios.IXANY)
         else:
             if self._xonxoff:
-                iflag |= (termios.IXON | termios.IXOFF)
+                iflag |= termios.IXON | termios.IXOFF
             else:
                 iflag &= ~(termios.IXON | termios.IXOFF)
         # rtscts
-        if hasattr(termios, 'CRTSCTS'):
+        if hasattr(termios, "CRTSCTS"):
             if self._rtscts:
-                cflag |= (termios.CRTSCTS)
+                cflag |= termios.CRTSCTS
             else:
                 cflag &= ~(termios.CRTSCTS)
-        elif hasattr(termios, 'CNEW_RTSCTS'):   # try it with alternate constant name
+        elif hasattr(termios, "CNEW_RTSCTS"):  # try it with alternate constant name
             if self._rtscts:
-                cflag |= (termios.CNEW_RTSCTS)
+                cflag |= termios.CNEW_RTSCTS
             else:
                 cflag &= ~(termios.CNEW_RTSCTS)
         # XXX should there be a warning if setting up rtscts (and xonxoff etc) fails??
@@ -209,18 +233,22 @@ class Serial(SerialBase, PlatformSpecific):
         # buffer
         # vmin "minimal number of characters to be read. 0 for non blocking"
         if vmin < 0 or vmin > 255:
-            raise ValueError('Invalid vmin: {!r}'.format(vmin))
+            raise ValueError("Invalid vmin: {!r}".format(vmin))
         cc[termios.VMIN] = vmin
         # vtime
         if vtime < 0 or vtime > 255:
-            raise ValueError('Invalid vtime: {!r}'.format(vtime))
+            raise ValueError("Invalid vtime: {!r}".format(vtime))
         cc[termios.VTIME] = vtime
         # activate settings
-        if force_update or [iflag, oflag, cflag, lflag, ispeed, ospeed, cc] != orig_attr:
+        if (
+            force_update
+            or [iflag, oflag, cflag, lflag, ispeed, ospeed, cc] != orig_attr
+        ):
             termios.tcsetattr(
                 self.fd,
                 termios.TCSANOW,
-                [iflag, oflag, cflag, lflag, ispeed, ospeed, cc])
+                [iflag, oflag, cflag, lflag, ispeed, ospeed, cc],
+            )
 
         # apply custom baud rate, if any
         if custom_baud is not None:
@@ -242,9 +270,9 @@ class Serial(SerialBase, PlatformSpecific):
     @property
     def in_waiting(self):
         """Return the number of bytes currently in the input buffer."""
-        #~ s = fcntl.ioctl(self.fd, termios.FIONREAD, TIOCM_zero_str)
+        # ~ s = fcntl.ioctl(self.fd, termios.FIONREAD, TIOCM_zero_str)
         s = fcntl.ioctl(self.fd, TIOCINQ, TIOCM_zero_str)
-        return struct.unpack('I', s)[0]
+        return struct.unpack("I", s)[0]
 
     @async_assert_open
     async def read(self, size=1):
@@ -256,8 +284,9 @@ class Serial(SerialBase, PlatformSpecific):
                 # behavior that they are always ready to read immediately
                 # but reading returns nothing.
                 raise serial.SerialException(
-                    'device reports readiness to read but returned no data '
-                    '(device disconnected or multiple access on port?)')
+                    "device reports readiness to read but returned no data "
+                    "(device disconnected or multiple access on port?)"
+                )
             read.extend(buf)
         return bytes(read)
 
@@ -319,37 +348,37 @@ class Serial(SerialBase, PlatformSpecific):
     async def cts(self):
         """Read terminal status line: Clear To Send"""
         s = fcntl.ioctl(self.fd, TIOCMGET, TIOCM_zero_str)
-        return struct.unpack('I', s)[0] & TIOCM_CTS != 0
+        return struct.unpack("I", s)[0] & TIOCM_CTS != 0
 
     @property
     @async_assert_open
     async def dsr(self):
         """Read terminal status line: Data Set Ready"""
         s = fcntl.ioctl(self.fd, TIOCMGET, TIOCM_zero_str)
-        return struct.unpack('I', s)[0] & TIOCM_DSR != 0
+        return struct.unpack("I", s)[0] & TIOCM_DSR != 0
 
     @property
     @async_assert_open
     def ri(self):
         """Read terminal status line: Ring Indicator"""
         s = fcntl.ioctl(self.fd, TIOCMGET, TIOCM_zero_str)
-        return struct.unpack('I', s)[0] & TIOCM_RI != 0
+        return struct.unpack("I", s)[0] & TIOCM_RI != 0
 
     @property
     @async_assert_open
     async def cd(self):
         """Read terminal status line: Carrier Detect"""
         s = fcntl.ioctl(self.fd, TIOCMGET, TIOCM_zero_str)
-        return struct.unpack('I', s)[0] & TIOCM_CD != 0
+        return struct.unpack("I", s)[0] & TIOCM_CD != 0
 
     # - - platform specific - - - -
 
     @property
     def out_waiting(self):
         """Return the number of bytes currently in the output buffer."""
-        #~ s = fcntl.ioctl(self.fd, termios.FIONREAD, TIOCM_zero_str)
+        # ~ s = fcntl.ioctl(self.fd, termios.FIONREAD, TIOCM_zero_str)
         s = fcntl.ioctl(self.fd, TIOCOUTQ, TIOCM_zero_str)
-        return struct.unpack('I', s)[0]
+        return struct.unpack("I", s)[0]
 
     @assert_open
     def fileno(self):
