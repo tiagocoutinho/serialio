@@ -35,7 +35,7 @@ setup(
     ],
     description="Concurrency agnostic serialio API",
     license="GPLv3+",
-    install_requires=["pyserial", "sockio"],
+    install_requires=["pyserial", "sockio>=0.10"],
     long_description=description,
     long_description_content_type="text/markdown",
     keywords="serial, rs232, rcf2217, socket, tcp, ser2net",
