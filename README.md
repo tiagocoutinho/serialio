@@ -47,10 +47,12 @@ import asyncio
 from serialio.aio.tcp import Serial
 
 async def main():
-    sl = Serial('raw.ser2net.com', 5000)
+    sl = Serial("raw.ser2net.com", 5000)
+    await sl.open()
     # Assuming a SCPI complient on the other end we can ask for:
-    reply = await sl.write_readline(b'*IDN?\n')
+    reply = await sl.write_readline(b"*IDN?\n")
     print(reply)
+    await sl.close()
 
 asyncio.run(main())
 ```
@@ -59,10 +61,10 @@ asyncio.run(main())
 
 ```python
 
-from serialio.sio.tcp import Serial
+from serialio.aio.tcp import Serial
 
-sl = Serial('raw.ser2net.com', 5000)
-reply = sl.write_readline(b'*IDN?\n')
+sl = Serial("raw.ser2net.com", 5000)
+reply = sl.write_readline(b"*IDN?\n")
 print(reply)
 ```
 
@@ -71,10 +73,20 @@ print(reply)
 ```python
 from serialio.sio.tcp import Serial
 
-sl = Serial('raw.ser2net.com', 5000, resolve_futures=False)
-reply = sl.write_readline(b'*IDN?\n').result()
+sl = Serial("raw.ser2net.com", 5000, resolve_futures=False)
+reply = sl.write_readline(b"*IDN?\n").result()
 print(reply)
 ```
+
+## API differences with [serial](https://github.com/pyserial/pyserial)
+
+* coroutine based API
+* `open()` coroutine must be called explicitly before using the serial line
+* setting of parameters done through functions instead of properties (ie:
+  `await ser_line.set_XXX(value)` instead of `ser_line.XXX = value`
+  (ex: `await ser_line.set_baudrate()))
+* custom `eol` character (serial is fixed to `b"\r"`)
+* included REQ/REP atomic functions (`write_read()` family)
 
 ## Features
 
@@ -84,8 +96,7 @@ with instruments connected to a serial line.
 The most frequent cases include instruments which expect a REQ/REP
 semantics with ASCII protocols like SCPI. In these cases most commands
 translate in small packets being exchanged between the host and the
-instrument. When a raw TCP or RFC2217 bridge is used to access the serial
-line, serialio uses the sockio library.
+instrument.
 
 ### REQ-REP semantics
 
@@ -93,23 +104,19 @@ Many instruments out there have a Request-Reply protocol. A serialio Serial
 provides helpfull `write_read` family of methods which simplify communication
 with these instruments.
 
-### Auto-reconnection
-
-TODO: Write this chapter
-
 ### Custom EOL
 
 In line based protocols, sometimes people decide `\n` is not a good EOL character.
 A serialio can be customized with a different EOL character. Example:
 
 ```python
-sl = Serial('raw.ser2net.com', 5000, eol=b'\r')
+sl = Serial("raw.ser2net.com", 5000, eol=b"\r")
 ```
 
 The EOL character can be overwritten in any of the `readline` methods. Example:
 
 ```python
-await sl.write_readline(b'*IDN?\n', eol=b'\r')
+await sl.write_readline(b"*IDN?\n", eol=b"\r")
 ```
 
 ### Streams
