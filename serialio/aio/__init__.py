@@ -14,7 +14,5 @@ def serial_for_url(url, *args, **kwargs):
     elif scheme == "serial-tcp":
         from .tcp import Serial
     else:
-        raise ValueError(
-            "unsupported scheme {!r} for {}".format(scheme, url)
-        )
+        raise ValueError("unsupported scheme {!r} for {}".format(scheme, url))
     return Serial(address, *args, **kwargs)

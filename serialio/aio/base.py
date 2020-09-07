@@ -1,5 +1,3 @@
-import io
-import time
 import array
 import asyncio
 import logging
@@ -7,6 +5,7 @@ import functools
 
 import serial
 from serial import (
+    Timeout,
     SerialException,
     SerialTimeoutException,
     writeTimeoutError,
@@ -17,6 +16,9 @@ from serial import (
 def module_symbols(mod, filter_func=str.isupper):
     """return module symbols"""
     return {k: getattr(mod, k) for k in dir(mod) if filter_func(k)}
+
+
+globals().update(module_symbols(serial))
 
 
 def assert_open(func):
@@ -39,7 +41,68 @@ def async_assert_open(func):
     return wrapper
 
 
-globals().update(module_symbols(serial))
+def ensure_open(func):
+    """
+    Decorator helper which ensures serial line is connected before func is exectued
+    """
+    assert asyncio.iscoroutinefunction(func)
+    name = func.__name__
+
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        if not self.is_open:
+            if self._auto_reconnect:
+                await self.open()
+            else:
+                raise portNotOpenError
+        timeout = kwargs.pop("timeout", self._timeout)
+        coro = func(self, *args, **kwargs)
+        if timeout is not None:
+            coro = asyncio.wait_for(coro, timeout)
+        try:
+            return await coro
+        except asyncio.TimeoutError as error:
+            msg = "{} call timeout on '{}:{}'".format(name, self.host, self.port)
+            raise ConnectionTimeoutError(msg) from error
+
+    return wrapper
+
+
+def ensure_call(func):
+    """Method decorator helper"""
+    assert asyncio.iscoroutinefunction(func)
+
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        try:
+            return await func(self, *args, **kwargs)
+        except OSError:
+            await self.close()
+            if self._auto_reconnect:
+                await self.open()
+                try:
+                    return await func(self, *args, **kwargs)
+                except OSError:
+                    await self.close()
+                    raise
+            else:
+                raise
+
+    return wrapper
+
+
+def ensure_call_reply(func):
+    func = ensure_call(func)
+
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        reply = await func(self, *args, **kwargs)
+        if not reply:
+            await self.close()
+            raise ConnectionError("Connection closed by peer")
+        return reply
+
+    return wrapper
 
 
 # "for byte in data" fails for python3 as it returns ints instead of bytes
@@ -57,53 +120,6 @@ def iterbytes(b):
             break
 
 
-class Timeout(object):
-    """\
-    Abstraction for timeout operations.
-
-    The class can also be initialized with 0 or None, in order to support
-    non-blocking and fully blocking I/O operations. The attributes
-    is_non_blocking and is_infinite are set accordingly.
-    """
-
-    def __init__(self, duration):
-        """Initialize a timeout with given duration"""
-        self.is_infinite = duration is None
-        self.is_non_blocking = duration == 0
-        self.duration = duration
-        if duration is not None:
-            self.target_time = time.monotonic() + duration
-        else:
-            self.target_time = None
-
-    def expired(self):
-        """Return a boolean, telling if the timeout has expired"""
-        return self.target_time is not None and self.time_left() <= 0
-
-    def time_left(self):
-        """Return how many seconds are left until the timeout expires"""
-        if self.is_non_blocking:
-            return 0
-        elif self.is_infinite:
-            return None
-        else:
-            delta = self.target_time - time.monotonic()
-            if delta > self.duration:
-                # clock jumped, recalculate
-                self.target_time = time.monotonic() + self.duration
-                return self.duration
-            else:
-                return max(0, delta)
-
-    def restart(self, duration):
-        """\
-        Restart a timeout, only supported if a timeout was already set up
-        before.
-        """
-        self.duration = duration
-        self.target_time = time.monotonic() + duration
-
-
 class SerialBase:
 
     BAUDRATES = serial.SerialBase.BAUDRATES
@@ -112,7 +128,7 @@ class SerialBase:
 
     def __init__(
         self,
-        port=None,
+        port,
         baudrate=9600,
         bytesize=EIGHTBITS,
         parity=PARITY_NONE,
@@ -124,10 +140,10 @@ class SerialBase:
         dsrdtr=False,
         inter_byte_timeout=None,
         exclusive=None,
+        auto_reconnect=True,
         eol=LF,
     ):
-        self.is_open = False
-        self.name = port
+        assert isinstance(port, str) and port
         self._port = port
         self._baudrate = baudrate
         self._bytesize = bytesize
@@ -143,8 +159,9 @@ class SerialBase:
         self._dtr_state = True
         self._break_state = False
         self._exclusive = exclusive
+        self._auto_reconnect = auto_reconnect
         self._eol = eol
-        self.logger = logging.getLogger("Serial({})".format(self.name))
+        self.logger = logging.getLogger("Serial({})".format(self._port))
 
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
@@ -158,15 +175,6 @@ class SerialBase:
     def port(self):
         """Get the current port setting"""
         return self._port
-
-    async def set_port(self, port):
-        was_open = self.is_open
-        if was_open:
-            await self.close()
-        self._port = port
-        self.name = port
-        if was_open:
-            await self.open()
 
     @property
     def baudrate(self):
@@ -416,21 +424,33 @@ class SerialBase:
     def seekable(self):
         return False
 
+    @ensure_open
+    @ensure_call_reply
     async def readinto(self, b):
-        data = await self.read(len(b))
+        data = await self._read(len(b))
         n = len(data)
         try:
             b[:n] = data
-        except TypeError as err:
-            import array
-
+        except TypeError:
             if not isinstance(b, array.array):
-                raise err
+                raise
             b[:n] = array.array("b", data)
         return n
 
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
+    @ensure_open
+    @ensure_call_reply
+    async def read(self, size=1):
+        return await self._read(size=size)
+
+    @ensure_open
+    @ensure_call
+    async def write(self, data):
+        return await self._write(data)
+
+    @ensure_open
+    @ensure_call_reply
     async def readuntil(self, separator=LF, size=None):
         """\
         Read until an expected sequence is found ('\n' by default) or the size
@@ -438,9 +458,8 @@ class SerialBase:
         """
         lenterm = len(separator)
         line = bytearray()
-        timeout = Timeout(self._timeout)
         while True:
-            c = await self.read(1)
+            c = await self._read(1)
             if c:
                 line += c
                 if line[-lenterm:] == separator:
@@ -449,42 +468,54 @@ class SerialBase:
                     break
             else:
                 break
-            if timeout.expired():
-                break
         return bytes(line)
 
+    @ensure_open
+    @ensure_call_reply
     async def readbuffer(self):
         """Read all bytes currently available in the buffer of the OS"""
-        return await self.read(self.in_waiting)
+        return await self._read(self.in_waiting)
 
+    @ensure_open
+    @ensure_call
     async def writelines(self, lines):
-        return await self.write(b"".join(lines))
+        return await self._write(b"".join(lines))
 
+    @ensure_open
+    @ensure_call_reply
     async def readline(self, eol=None):
         if eol is None:
             eol = self._eol
         return await self.readuntil(separator=eol)
 
+    @ensure_open
+    @ensure_call_reply
     async def readlines(self, n, eol=None):
         if eol is None:
             eol = self._eol
         return [await self.readline(eol=eol) for _ in range(n)]
 
+    @ensure_open
+    @ensure_call_reply
     async def write_readline(self, data, eol=None):
         await self.write(data)
         return await self.readline(eol=eol)
 
+    @ensure_open
+    @ensure_call_reply
     async def write_readlines(self, data, n, eol=None):
         await self.write(data)
         return await self.readlines(n, eol=eol)
 
+    @ensure_open
+    @ensure_call_reply
     async def writelines_readlines(self, lines, n=None, eol=None):
         if n is None:
             n = len(lines)
         await self.writelines(lines)
         return await self.readlines(n, eol=eol)
 
-    @async_assert_open
+    @ensure_open
     async def send_break(self, duration=0.25):
         """\
         Send break condition. Timed, returns to idle state after given
