@@ -29,15 +29,28 @@ class Serial(SerialBase):
         if self._socket is None:
             raise serial.SerialException("Can only operate on open ports")
 
+    def from_url(self, url):
+        """\
+        extract host and port from an URL string, other settings are extracted
+        an stored in instance
+        """
+        parts = urllib.parse.urlsplit(url)
+        try:
+            if not 0 <= parts.port < 65536:
+                raise ValueError("port not in range 0...65535")
+        except ValueError as e:
+            raise SerialException(
+                "expected a string in the form "
+                '"[serial-tcp://]<host>:<port>": {}'.format(e)
+            )
+        return (parts.hostname, parts.port)
+
     async def open(self):
         if self._port is None:
-            raise serial.SerialException(
-                "Port must be configured before it can be used."
-            )
+            raise SerialException("Port must be configured before it can be used.")
         if self.is_open:
-            raise serial.SerialException("Port is already open.")
-        url = urllib.parse.urlparse(self._port)
-        host, port = url.hostname, url.port
+            raise SerialException("Port is already open.")
+        host, port = self.from_url(self._port)
         self._socket = sockio.aio.TCP(
             host, port, eol=self._eol, timeout=self._timeout, auto_reconnect=False,
             on_eof_received=self._do_disconnect, on_connection_lost=self._do_disconnect

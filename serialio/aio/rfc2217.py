@@ -442,12 +442,6 @@ class Serial(SerialBase):
         an stored in instance
         """
         parts = urllib.parse.urlsplit(url)
-        if parts.scheme != "rfc2217":
-            raise SerialException(
-                "expected a string in the form "
-                '"rfc2217://<host>:<port>[?option[&option...]]": '
-                "not starting with rfc2217:// ({!r})".format(parts.scheme)
-            )
         try:
             # process options now, directly altering self
             for option, values in urllib.parse.parse_qs(parts.query, True).items():
@@ -467,7 +461,7 @@ class Serial(SerialBase):
         except ValueError as e:
             raise SerialException(
                 "expected a string in the form "
-                '"rfc2217://<host>:<port>[?option[&option...]]": {}'.format(e)
+                '"[rfc2217://]<host>:<port>[?option[&option...]]": {}'.format(e)
             )
         return (parts.hostname, parts.port)
 

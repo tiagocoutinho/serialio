@@ -40,15 +40,19 @@ pip install serialio
 
 ## Usage
 
-*asyncio*
+### asyncio
 
 ```python
 import asyncio
-from serialio.aio.tcp import Serial
+import serialio.aio.tcp
 
 async def main():
-    sl = Serial("raw.ser2net.com", 5000)
+    sl = serialio.aio.serial_for_url("serial-tcp://lab1.acme.org:5000")
+    # or the equivalent:
+    # sl = serialio.aio.tcp.Serial("lab1.acme.org", 5000)
+
     await sl.open()
+
     # Assuming a SCPI complient on the other end we can ask for:
     reply = await sl.write_readline(b"*IDN?\n")
     print(reply)
@@ -57,23 +61,60 @@ async def main():
 asyncio.run(main())
 ```
 
-*classic (TODO)*
+*local serial line*
+
+```python
+import serialio.aio.posix
+
+sl = serialio.aio.posix.Serial("/dev/ttyS0")
+
+# or the equivalent
+
+sl = serialio.aio.serial_for_url("serial:///dev/ttyS0")
+```
+
+*raw TCP socket*
+
+```python
+import serialio.aio.tcp
+
+sl = serialio.aio.tcp.Serial("lab1.acme.org:5000")
+
+# or the equivalent
+
+sl = serialio.aio.serial_for_url("serial-tcp://lab1.acme.org:5000")
+```
+
+*RFC2217 (telnet)*
+
+```python
+import serialio.aio.rfc2217
+
+sl = serialio.aio.rfc2217.Serial("lab1.acme.org:5000")
+
+# or the equivalent
+
+sl = serialio.aio.serial_for_url("rfc2217://lab1.acme.org:5000")
+```
+
+
+### classic (TODO)
 
 ```python
 
 from serialio.aio.tcp import Serial
 
-sl = Serial("raw.ser2net.com", 5000)
+sl = Serial("lab1.acme.org", 5000)
 reply = sl.write_readline(b"*IDN?\n")
 print(reply)
 ```
 
-*concurrent.futures (TODO)*
+### concurrent.futures (TODO)
 
 ```python
 from serialio.sio.tcp import Serial
 
-sl = Serial("raw.ser2net.com", 5000, resolve_futures=False)
+sl = Serial("lab1.acme.org", 5000, resolve_futures=False)
 reply = sl.write_readline(b"*IDN?\n").result()
 print(reply)
 ```
@@ -84,7 +125,7 @@ print(reply)
 * `open()` coroutine must be called explicitly before using the serial line
 * setting of parameters done through functions instead of properties (ie:
   `await ser_line.set_XXX(value)` instead of `ser_line.XXX = value`
-  (ex: `await ser_line.set_baudrate()))
+  (ex: `await ser_line.set_baudrate()`))
 * custom `eol` character (serial is fixed to `b"\r"`)
 * included REQ/REP atomic functions (`write_read()` family)
 
@@ -111,6 +152,7 @@ A serialio can be customized with a different EOL character. Example:
 
 ```python
 sl = Serial("raw.ser2net.com", 5000, eol=b"\r")
+await sl.open()
 ```
 
 The EOL character can be overwritten in any of the `readline` methods. Example:
