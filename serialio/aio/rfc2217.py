@@ -2,31 +2,22 @@ import socket
 import struct
 import asyncio
 import logging
-
 import urllib.parse
 
+import sockio.aio
 import serial.rfc2217
 
 from .base import (
     SerialBase,
     SerialException,
-    portNotOpenError,
     Timeout,
     module_symbols,
     assert_open,
-    async_assert_open,
     iterbytes,
 )
 
 
 globals().update(module_symbols(serial.rfc2217))
-
-
-IPTOS_NORMAL = 0x0
-IPTOS_LOWDELAY = 0x10
-IPTOS_THROUGHPUT = 0x08
-IPTOS_RELIABILITY = 0x04
-IPTOS_MINCOST = 0x02
 
 
 log = logging.getLogger("serialio.rfc2217")
@@ -190,14 +181,6 @@ class TelnetSubnegotiation(object):
         )
 
 
-async def _open_connection(host, port, no_delay=True, tos=IPTOS_LOWDELAY):
-    reader, writer = await asyncio.open_connection(host, port)
-    sock = writer.transport.get_extra_info("socket")
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-    sock.setsockopt(socket.SOL_IP, socket.IP_TOS, tos)
-    return reader, writer
-
-
 # It was very tempting to inherit from serial.rfc2217.Serial.
 # This would result in being extremely dependent on its implementation details.
 # There would be a high risk that this would become incompatible with several
@@ -224,31 +207,28 @@ class Serial(SerialBase):
         self._rfc2217_port_settings = None
         self._rfc2217_options = None
         self._read_buffer = None
-        self._no_delay = kwargs.pop("no_delay", True)
-        self._tos = kwargs.pop("tos", IPTOS_LOWDELAY)
+        self._initialized = False
         self.logger = log
         super().__init__(*args, **kwargs)
-
-    async def _open_connection(self, host, port):
-        return await _open_connection(
-            host, port, no_delay=self._no_delay, tos=self._tos
+        host, port = self.from_url(self._port)
+        self._socket = sockio.aio.TCP(
+            host,
+            port,
+            eol=self._eol,
+            timeout=self._timeout,
+            auto_reconnect=self._auto_reconnect,
         )
+
+    @property
+    def is_open(self):
+        return self._socket.is_open and self._initialized
 
     async def open(self):
         self._ignore_set_control_answer = False
         self._poll_modem_state = False
-        self._network_timeout = 1
-        if self._port is None:
-            raise SerialException("Port must be configured before it can be used.")
-        if self.is_open:
-            raise SerialException("Port is already open.")
-        host, port = self.from_url(self._port)
+        self._network_timeout = 3
 
-        try:
-            self._socket = await self._open_connection(host, port)
-        except Exception as msg:
-            self._socket = None
-            raise SerialException("Could not open port {}: {}".format(self.port, msg))
+        await self._socket.open()
 
         # use a thread save queue as buffer. it also simplifies implementing
         # the read timeout
@@ -333,7 +313,7 @@ class Serial(SerialBase):
         # RFC 2217 flow control between server and client
         self._remote_suspend_flow = False
 
-        self.is_open = True
+        self._initialized = True
         self._thread = asyncio.create_task(self._telnet_read_loop())
 
         try:  # must clean-up if open fails
@@ -372,9 +352,6 @@ class Serial(SerialBase):
 
     async def _reconfigure_port(self):
         """Set communication parameters on opened port."""
-        if self._socket is None:
-            raise SerialException("Can only operate on open ports")
-
         # Setup the connection
         # to get good performance, all parameter changes are sent first...
         if not 0 < self._baudrate < 2 ** 32:
@@ -418,13 +395,10 @@ class Serial(SerialBase):
 
     async def close(self):
         """Close port"""
-        self.is_open = False
+        self._initialized = False
         if self._socket:
-            writer = self._socket[1]
             try:
-                writer.close()
-                if hasattr(writer, "wait_closed"):
-                    await writer.wait_closed()
+                await self._socket.close()
             except BaseException:
                 # ignore errors.
                 pass
@@ -434,7 +408,6 @@ class Serial(SerialBase):
             self._thread = None
             # in case of quick reconnects, give the server some time
             await asyncio.sleep(0.3)
-        self._socket = None
 
     def from_url(self, url):
         """\
@@ -442,12 +415,6 @@ class Serial(SerialBase):
         an stored in instance
         """
         parts = urllib.parse.urlsplit(url)
-        if parts.scheme != "rfc2217":
-            raise SerialException(
-                "expected a string in the form "
-                '"rfc2217://<host>:<port>[?option[&option...]]": '
-                "not starting with rfc2217:// ({!r})".format(parts.scheme)
-            )
         try:
             # process options now, directly altering self
             for option, values in urllib.parse.parse_qs(parts.query, True).items():
@@ -467,7 +434,7 @@ class Serial(SerialBase):
         except ValueError as e:
             raise SerialException(
                 "expected a string in the form "
-                '"rfc2217://<host>:<port>[?option[&option...]]": {}'.format(e)
+                '"[rfc2217://]<host>:<port>[?option[&option...]]": {}'.format(e)
             )
         return (parts.hostname, parts.port)
 
@@ -479,14 +446,6 @@ class Serial(SerialBase):
         """Return the number of bytes currently in the input buffer."""
         return self._read_buffer.qsize()
 
-    async def read(self, size=1):
-        """\
-        Read size bytes from the serial port. It will block until the requested
-        number of bytes is read.
-        """
-        return await self._read(size=size)
-
-    @async_assert_open
     async def _read(self, size=1):
         data = bytearray()
         while len(data) < size:
@@ -498,8 +457,7 @@ class Serial(SerialBase):
             data += buf
         return bytes(data)
 
-    @async_assert_open
-    async def write(self, data):
+    async def _write(self, data):
         """\
         Output the given byte string over the serial port. Can block if the
         connection is blocked. May raise SerialException if the connection is
@@ -511,7 +469,6 @@ class Serial(SerialBase):
             raise SerialException("connection failed (socket error): {}".format(e))
         return len(data)
 
-    @async_assert_open
     async def reset_input_buffer(self):
         """Clear input buffer, discarding all that is in the buffer."""
         await self.rfc2217_send_purge(PURGE_RECEIVE_BUFFER)
@@ -519,7 +476,6 @@ class Serial(SerialBase):
         while self._read_buffer.qsize():
             self._read_buffer.get(False)
 
-    @async_assert_open
     async def reset_output_buffer(self):
         """\
         Clear output buffer, aborting the current output and
@@ -527,7 +483,6 @@ class Serial(SerialBase):
         """
         await self.rfc2217_send_purge(PURGE_TRANSMIT_BUFFER)
 
-    @async_assert_open
     async def _update_break_state(self):
         """\
         Set break: Controls TXD. When active, to transmitting is
@@ -541,7 +496,6 @@ class Serial(SerialBase):
         else:
             await self.rfc2217_set_control(SET_CONTROL_BREAK_OFF)
 
-    @async_assert_open
     async def _update_rts_state(self):
         """Set terminal status line: Request To Send."""
         self.logger.info(
@@ -552,7 +506,6 @@ class Serial(SerialBase):
         else:
             await self.rfc2217_set_control(SET_CONTROL_RTS_OFF)
 
-    @async_assert_open
     async def _update_dtr_state(self):
         """Set terminal status line: Data Terminal Ready."""
         self.logger.info(
@@ -564,25 +517,21 @@ class Serial(SerialBase):
             await self.rfc2217_set_control(SET_CONTROL_DTR_OFF)
 
     @property
-    @async_assert_open
     async def cts(self):
         """Read terminal status line: Clear To Send."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_CTS)
 
     @property
-    @async_assert_open
     async def dsr(self):
         """Read terminal status line: Data Set Ready."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_DSR)
 
     @property
-    @async_assert_open
     async def ri(self):
         """Read terminal status line: Ring Indicator."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_RI)
 
     @property
-    @async_assert_open
     async def cd(self):
         """Read terminal status line: Carrier Detect."""
         return bool(await self.get_modem_state() & MODEMSTATE_MASK_CD)
@@ -595,7 +544,7 @@ class Serial(SerialBase):
         suboption = None
         try:
             while self.is_open:
-                reader = self._socket[0]
+                reader = self._socket
                 try:
                     data = await reader.read(1024)
                 except socket.timeout:
@@ -718,11 +667,9 @@ class Serial(SerialBase):
 
     async def _internal_raw_write(self, data):
         """internal socket write with no data escaping. used to send telnet stuff."""
-        writer = self._socket[1]
         self.logger.debug("SEND %r", data)
         async with self._write_lock:
-            writer.write(data)
-            await writer.drain()
+            await self._socket.write(data)
 
     async def telnet_send_option(self, action, option):
         """Send DO, DONT, WILL, WONT."""
@@ -785,15 +732,10 @@ class Serial(SerialBase):
         if self._poll_modem_state and self._modemstate_timeout.expired():
             self.logger.debug("polling modem state")
             # when it is older, request an update
-            await self.rfc2217_send_subnegotiation(NOTIFY_MODEMSTATE)
-            timeout = Timeout(self._network_timeout)
-            while not timeout.expired():
-                await asyncio.sleep(0.05)  # prevent 100% CPU load
-                # when expiration time is updated, it means that there is a new
-                # value
-                if not self._modemstate_timeout.expired():
-                    break
-            else:
+            coro = self.rfc2217_send_subnegotiation(NOTIFY_MODEMSTATE)
+            try:
+                await asyncio.wait_for(coro, self._network_timeout)
+            except asyncio.TimeoutError:
                 self.logger.warning("poll for modem state failed")
             # even when there is a timeout, do not generate an error just
             # return the last known value. this way we can support buggy

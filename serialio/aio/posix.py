@@ -13,7 +13,9 @@ from .base import (
     SerialException,
     module_symbols,
     assert_open,
-    async_assert_open,
+    ensure_open,
+    ensure_call,
+    ensure_call_reply,
 )
 
 globals().update(module_symbols(serial.serialposix))
@@ -23,6 +25,10 @@ TIOCM_zero_str = serial.serialposix.TIOCM_zero_str
 
 
 class Serial(SerialBase, PlatformSpecific):
+
+    fd = None
+    is_open = False
+
     @property
     def _loop(self):
         return asyncio.get_running_loop()
@@ -49,8 +55,6 @@ class Serial(SerialBase, PlatformSpecific):
         """\
         Open port with current settings. This may throw a SerialException
         if the port cannot be opened."""
-        if self._port is None:
-            raise SerialException("Port must be configured before it can be used.")
         if self.is_open:
             raise SerialException("Port is already open.")
         self.fd = None
@@ -62,7 +66,6 @@ class Serial(SerialBase, PlatformSpecific):
             raise SerialException(
                 msg.errno, "could not open port {}: {}".format(self._port, msg)
             )
-        # ~ fcntl.fcntl(self.fd, fcntl.F_SETFL, 0)  # set blocking
 
         try:
             await self._reconfigure_port(force_update=True)
@@ -274,8 +277,7 @@ class Serial(SerialBase, PlatformSpecific):
         s = fcntl.ioctl(self.fd, TIOCINQ, TIOCM_zero_str)
         return struct.unpack("I", s)[0]
 
-    @async_assert_open
-    async def read(self, size=1):
+    async def _read(self, size=1):
         read = bytearray()
         while len(read) < size:
             buf = await self._read1(size)
@@ -290,8 +292,7 @@ class Serial(SerialBase, PlatformSpecific):
             read.extend(buf)
         return bytes(read)
 
-    @async_assert_open
-    async def write(self, data):
+    async def _write(self, data):
         d = bytes(data)
         tx_len = length = len(d)
         while tx_len > 0:
@@ -300,7 +301,7 @@ class Serial(SerialBase, PlatformSpecific):
             tx_len -= n
         return length - len(d)
 
-    @async_assert_open
+    @ensure_open
     async def flush(self):
         """\
         Flush of file like objects. In this case, wait until all data
@@ -308,12 +309,12 @@ class Serial(SerialBase, PlatformSpecific):
         """
         termios.tcdrain(self.fd)
 
-    @async_assert_open
+    @ensure_open
     async def reset_input_buffer(self):
         """Clear input buffer, discarding all that is in the buffer."""
         termios.tcflush(self.fd, termios.TCIFLUSH)
 
-    @async_assert_open
+    @ensure_open
     async def reset_output_buffer(self):
         """\
         Clear output buffer, aborting the current output and discarding all
@@ -321,7 +322,7 @@ class Serial(SerialBase, PlatformSpecific):
         """
         termios.tcflush(self.fd, termios.TCOFLUSH)
 
-    @async_assert_open
+    @ensure_open
     async def send_break(self, duration=0.25):
         """\
         Send break condition. Timed, returns to idle state after given
@@ -344,28 +345,28 @@ class Serial(SerialBase, PlatformSpecific):
             fcntl.ioctl(self.fd, TIOCMBIC, TIOCM_DTR_str)
 
     @property
-    @async_assert_open
+    @ensure_open
     async def cts(self):
         """Read terminal status line: Clear To Send"""
         s = fcntl.ioctl(self.fd, TIOCMGET, TIOCM_zero_str)
         return struct.unpack("I", s)[0] & TIOCM_CTS != 0
 
     @property
-    @async_assert_open
+    @ensure_open
     async def dsr(self):
         """Read terminal status line: Data Set Ready"""
         s = fcntl.ioctl(self.fd, TIOCMGET, TIOCM_zero_str)
         return struct.unpack("I", s)[0] & TIOCM_DSR != 0
 
     @property
-    @async_assert_open
-    def ri(self):
+    @ensure_open
+    async def ri(self):
         """Read terminal status line: Ring Indicator"""
         s = fcntl.ioctl(self.fd, TIOCMGET, TIOCM_zero_str)
         return struct.unpack("I", s)[0] & TIOCM_RI != 0
 
     @property
-    @async_assert_open
+    @ensure_open
     async def cd(self):
         """Read terminal status line: Carrier Detect"""
         s = fcntl.ioctl(self.fd, TIOCMGET, TIOCM_zero_str)
@@ -374,7 +375,8 @@ class Serial(SerialBase, PlatformSpecific):
     # - - platform specific - - - -
 
     @property
-    def out_waiting(self):
+    @ensure_open
+    async def out_waiting(self):
         """Return the number of bytes currently in the output buffer."""
         # ~ s = fcntl.ioctl(self.fd, termios.FIONREAD, TIOCM_zero_str)
         s = fcntl.ioctl(self.fd, TIOCOUTQ, TIOCM_zero_str)
@@ -388,8 +390,8 @@ class Serial(SerialBase, PlatformSpecific):
         """
         return self.fd
 
-    @assert_open
-    def set_input_flow_control(self, enable=True):
+    @ensure_open
+    async def set_input_flow_control(self, enable=True):
         """\
         Manually control flow - when software flow control is enabled.
         This will send XON (true) or XOFF (false) to the other device.
@@ -397,8 +399,8 @@ class Serial(SerialBase, PlatformSpecific):
         """
         termios.tcflow(self.fd, termios.TCION if enable else termios.TCIOFF)
 
-    @assert_open
-    def set_output_flow_control(self, enable=True):
+    @ensure_open
+    async def set_output_flow_control(self, enable=True):
         """\
         Manually control flow of outgoing data - when hardware or software flow
         control is enabled.
