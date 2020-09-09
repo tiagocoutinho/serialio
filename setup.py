@@ -47,7 +47,7 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://tiagocoutinho.github.io/serialio/",
-    version="2.0.0",
+    version="2.1.0",
     python_requires=">=3.5",
     zip_safe=True,
 )
