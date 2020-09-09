@@ -8,11 +8,17 @@ Helpful when handling with instrumentation which work over serial line and imple
 simple REQ-REP communication protocols (example:
 [SCPI](https://en.m.wikipedia.org/wiki/Standard_Commands_for_Programmable_Instruments)).
 
-So far, only serial line over RFC2217 protocol and raw socket are available.
-It should be compatible with:
+Besides local serial line, serialio also supports serial line over RFC2217 protocol,
+raw TCP socket and [tango](https://tango-controls.org).
+
+As far as RFC2217 is concerned, it should be compatible with:
 
 * ser2net bridge with telnet(RFC2217) and raw configurations
 * gserial[ser2tcp] bridge (RFC2217)
+
+As far as tango is concerned, it should be compatible with the tango classes:
+
+* [Serial](https://sourceforge.net/p/tango-ds/code/HEAD/tree/DeviceClasses/Communication/SerialLine/)
 
 
 Base implementation written in asyncio with support for different concurrency models:
@@ -23,11 +29,11 @@ Base implementation written in asyncio with support for different concurrency mo
 
 Here is a summary of what is forseen and what is implemented
 
-| Concurrency   | Local  | RFC2217 | Raw TCP |
-| ------------- |:------:|:-------:|:-------:|
-| asyncio       |   Y    |    Y    |    Y    |
-| classic sync  |   N    |    N    |    N    |
-| conc. futures |   N    |    N    |    N    |
+| Concurrency   | Local  | RFC2217 | Raw TCP | [Tango](http://www.esrf.eu/computing/cs/tango/tango_doc/ds_doc/tango-ds/index.html) |
+| ------------- |:------:|:-------:|:-------:|:-----------------------------------------------------------------------------------:|
+| asyncio       |   Y    |    Y    |    Y    |                                        Y                                            |
+| classic sync  |   N    |    N    |    N    |                                        N                                            |
+| conc. futures |   N    |    N    |    N    |                                        N                                            |
 
 
 ## Installation
@@ -97,6 +103,18 @@ sl = serialio.aio.rfc2217.Serial("lab1.acme.org:5000")
 sl = serialio.aio.serial_for_url("rfc2217://lab1.acme.org:5000")
 ```
 
+*Tango*
+
+(needs a `pip install serialio[tango]` installation)
+
+```python
+import serialio.aio.tango
+sl = serialio.aio.tango.Serial("lab/01/serial-01")
+
+# or the equivalent
+
+sl = serialio.aio.serial_for_url("tango://lab/01/serial-01")
+```
 
 ### classic (TODO)
 

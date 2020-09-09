@@ -474,7 +474,8 @@ class SerialBase:
     @ensure_call_reply
     async def readbuffer(self):
         """Read all bytes currently available in the buffer of the OS"""
-        return await self._read(self.in_waiting)
+        nb = self.in_waiting
+        return await self._read((await nb) if asyncio.iscoroutine(nb) else nb)
 
     @ensure_open
     @ensure_call
