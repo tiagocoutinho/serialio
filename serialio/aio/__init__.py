@@ -2,12 +2,11 @@ import urllib.parse
 
 
 def serial_for_url(url, *args, **kwargs):
-    address = url
-    url_result = urllib.parse.urlparse(url)
-    scheme = url_result.scheme
+    addr = urllib.parse.urlparse(url)
+    scheme = addr.scheme
     if scheme == "serial":
         # local serial line
-        address = url_result.path
+        url = addr.path
         from .posix import Serial
     elif scheme == "rfc2217":
         from .rfc2217 import Serial
@@ -16,5 +15,5 @@ def serial_for_url(url, *args, **kwargs):
     elif scheme == "tango":
         from .tango import Serial
     else:
-        raise ValueError("unsupported scheme {!r} for {}".format(scheme, url))
-    return Serial(address, *args, **kwargs)
+        raise ValueError("unsupported async scheme {!r} for {}".format(scheme, url))
+    return Serial(url, *args, **kwargs)

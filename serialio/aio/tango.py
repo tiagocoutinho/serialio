@@ -21,23 +21,19 @@ class Serial(SerialBase):
     _LINE = 2
     _RETRY = 3
 
-    _PARITY_MAP = {
-        serial.PARITY_NONE: 0,
-        serial.PARITY_ODD: 1,
-        serial.PARITY_EVEN: 3
-    }
+    _PARITY_MAP = {serial.PARITY_NONE: 0, serial.PARITY_ODD: 1, serial.PARITY_EVEN: 3}
 
     _CHARLENGTH_MAP = {
         serial.EIGHTBITS: 0,
         serial.SEVENBITS: 1,
         serial.SIXBITS: 2,
-        serial.FIVEBITS: 3
+        serial.FIVEBITS: 3,
     }
 
     _STOPBITS_MAP = {
         serial.STOPBITS_ONE: 0,
         serial.STOPBITS_ONE_POINT_FIVE: 1,
-        serial.STOPBITS_TWO: 2
+        serial.STOPBITS_TWO: 2,
     }
 
     async def open(self):
@@ -49,8 +45,7 @@ class Serial(SerialBase):
             self.device = await tango.asyncio.DeviceProxy(self.port)
         except tango.DevFailed as error:
             raise SerialException(
-                "could not open tango serial port {}: {!r}"
-                .format(self.port, error)
+                "could not open tango serial port {}: {!r}".format(self.port, error)
             )
         try:
             await self._reconfigure_port()
@@ -66,10 +61,14 @@ class Serial(SerialBase):
 
     async def _reconfigure_port(self):
         pars = [
-            self._BAUDRATE, self._baudrate,
-            self._CHARLENGTH, self._CHARLENGTH_MAP[self._bytesize],
-            self._PARITY, self._PARITY_MAP[self._parity],
-            self._NEWLINE, ord(self._eol)
+            self._BAUDRATE,
+            self._baudrate,
+            self._CHARLENGTH,
+            self._CHARLENGTH_MAP[self._bytesize],
+            self._PARITY,
+            self._PARITY_MAP[self._parity],
+            self._NEWLINE,
+            ord(self._eol),
         ]
         if self._timeout is not None:
             pars.extend((self._TIMEOUT, int(self._timeout * 1000)))
