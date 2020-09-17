@@ -53,7 +53,7 @@ import asyncio
 import serialio.aio.tcp
 
 async def main():
-    sl = serialio.aio.serial_for_url("serial-tcp://lab1.acme.org:5000")
+    sl = serialio.serial_for_url("serial-tcp://lab1.acme.org:5000")
     # or the equivalent:
     # sl = serialio.aio.tcp.Serial("lab1.acme.org", 5000)
 
@@ -76,7 +76,7 @@ sl = serialio.aio.posix.Serial("/dev/ttyS0")
 
 # or the equivalent
 
-sl = serialio.aio.serial_for_url("serial:///dev/ttyS0")
+sl = serialio.serial_for_url("serial:///dev/ttyS0")
 ```
 
 *raw TCP socket*
@@ -88,7 +88,7 @@ sl = serialio.aio.tcp.Serial("lab1.acme.org:5000")
 
 # or the equivalent
 
-sl = serialio.aio.serial_for_url("serial-tcp://lab1.acme.org:5000")
+sl = serialio.serial_for_url("serial-tcp://lab1.acme.org:5000")
 ```
 
 *RFC2217 (telnet)*
@@ -100,7 +100,7 @@ sl = serialio.aio.rfc2217.Serial("lab1.acme.org:5000")
 
 # or the equivalent
 
-sl = serialio.aio.serial_for_url("rfc2217://lab1.acme.org:5000")
+sl = serialio.serial_for_url("rfc2217://lab1.acme.org:5000")
 ```
 
 *Tango*
@@ -113,7 +113,7 @@ sl = serialio.aio.tango.Serial("lab/01/serial-01")
 
 # or the equivalent
 
-sl = serialio.aio.serial_for_url("tango://lab/01/serial-01")
+sl = serialio.serial_for_url("tango://lab/01/serial-01")
 ```
 
 ### classic (TODO)
@@ -144,7 +144,7 @@ print(reply)
 * setting of parameters done through functions instead of properties (ie:
   `await ser_line.set_XXX(value)` instead of `ser_line.XXX = value`
   (ex: `await ser_line.set_baudrate()`))
-* custom `eol` character (serial is fixed to `b"\r"`)
+* custom `eol` character (serial is fixed to `b"\n"`)
 * included REQ/REP atomic functions (`write_read()` family)
 
 ## Features
@@ -166,14 +166,17 @@ with these instruments.
 ### Custom EOL
 
 In line based protocols, sometimes people decide `\n` is not a good EOL character.
-A serialio can be customized with a different EOL character. Example:
+A serialio can be customized with a different EOL character.
+For example, the [XIA-PFCU](https://github.com/tiagocoutinho/xia-pfcu) always
+replies with `;\r\n`, so we could configure it using the following snippet:
 
 ```python
-sl = Serial("raw.ser2net.com", 5000, eol=b"\r")
+sl = serialio.serial_for_url("serial:///dev/ttyS0", eol=b";\r\n")
 await sl.open()
 ```
 
-The EOL character can be overwritten in any of the `readline` methods. Example:
+The initial EOL character can be overwritten in any of the `readline` methods.
+Example:
 
 ```python
 await sl.write_readline(b"*IDN?\n", eol=b"\r")
