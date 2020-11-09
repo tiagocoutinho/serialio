@@ -14,10 +14,8 @@ def serial_for_url(url, *args, **kwargs):
     concurrency = CONCURRENCY_MAP.get(conc)
     if concurrency == "async":
         from . import aio
-
         return aio.serial_for_url(url, *args, **kwargs)
     elif concurrency == "sync":
         from . import sio
-
         return sio.serial_for_url(url, *args, **kwargs)
     raise ValueError("unsupported concurrency {!r}".format(conc))
