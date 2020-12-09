@@ -8,7 +8,6 @@ from serial import (
     Timeout,
     SerialException,
     SerialTimeoutException,
-    writeTimeoutError,
     portNotOpenError,
 )
 
