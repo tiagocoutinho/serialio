@@ -7,9 +7,13 @@ import serial
 from serial import (
     Timeout,
     SerialException,
-    SerialTimeoutException,
-    portNotOpenError,
+    SerialTimeoutException
 )
+
+try:
+    from serial import PortNotOpenError
+except ImportError:
+    from serial import portNotOpenError as PortNotOpenError
 
 
 def module_symbols(mod, filter_func=str.isupper):
