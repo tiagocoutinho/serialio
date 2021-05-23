@@ -11,6 +11,7 @@ from serial import (
 )
 
 try:
+    # PortNotOpenError only arrived in 3.5 (before was portNotOpenError)
     from serial import PortNotOpenError
 except ImportError:
     from serial import portNotOpenError as PortNotOpenError
@@ -28,7 +29,7 @@ def assert_open(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         if not self.is_open:
-            raise portNotOpenError
+            raise PortNotOpenError
         return func(self, *args, **kwargs)
 
     return wrapper
@@ -38,7 +39,7 @@ def async_assert_open(func):
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
         if not self.is_open:
-            raise portNotOpenError
+            raise PortNotOpenError
         return await func(self, *args, **kwargs)
 
     return wrapper
@@ -57,7 +58,7 @@ def ensure_open(func):
             if self._auto_reconnect:
                 await self.open()
             else:
-                raise portNotOpenError
+                raise PortNotOpenError
         timeout = kwargs.pop("timeout", self._timeout)
         coro = func(self, *args, **kwargs)
         if timeout is not None:
