@@ -7,18 +7,42 @@ import urllib.parse
 import sockio.aio
 import serial.rfc2217
 
+from serial.rfc2217 import (
+    REQUESTED, ACTIVE, INACTIVE, REALLY_INACTIVE,
+    COM_PORT_OPTION,
+    BINARY, WILL, WONT, DO, DONT,
+    ECHO, SGA,
+    SET_BAUDRATE, SERVER_SET_BAUDRATE,
+    SET_DATASIZE, SERVER_SET_DATASIZE,
+    SET_PARITY, SERVER_SET_PARITY,
+    SET_STOPSIZE, SERVER_SET_STOPSIZE,
+    PURGE_DATA, SERVER_PURGE_DATA,
+    SET_CONTROL, SERVER_SET_CONTROL,
+    RFC2217_PARITY_MAP, RFC2217_STOPBIT_MAP,
+    SET_CONTROL_USE_HW_FLOW_CONTROL,
+    SET_CONTROL_USE_SW_FLOW_CONTROL,
+    SET_CONTROL_USE_NO_FLOW_CONTROL,
+    LOGGER_LEVELS,
+    IAC, IAC_DOUBLED,
+    PURGE_RECEIVE_BUFFER, PURGE_TRANSMIT_BUFFER,
+    SET_CONTROL_BREAK_ON, SET_CONTROL_BREAK_OFF,
+    SET_CONTROL_RTS_ON, SET_CONTROL_RTS_OFF,
+    SET_CONTROL_DTR_ON, SET_CONTROL_DTR_OFF,
+    MODEMSTATE_MASK_CTS, MODEMSTATE_MASK_DSR,
+    MODEMSTATE_MASK_RI, MODEMSTATE_MASK_CD,
+    M_NORMAL, M_IAC_SEEN, SB, SE, M_NEGOTIATE,
+    SERVER_NOTIFY_LINESTATE, SERVER_NOTIFY_MODEMSTATE,
+    FLOWCONTROL_SUSPEND, FLOWCONTROL_RESUME,
+    NOTIFY_MODEMSTATE
+)
+
 from .base import (
     SerialBase,
     SerialException,
     Timeout,
-    module_symbols,
     assert_open,
     iterbytes,
 )
-
-
-globals().update(module_symbols(serial.rfc2217))
-
 
 log = logging.getLogger("serialio.rfc2217")
 
@@ -359,7 +383,6 @@ class Serial(SerialBase):
                 )
             self.logger.info("Negotiated options: {}".format(self._telnet_options))
 
-            tasks = []
             # fine, go on, set RFC 2271 specific things
             await self._reconfigure_port()
             # all things set up get, now a clean start

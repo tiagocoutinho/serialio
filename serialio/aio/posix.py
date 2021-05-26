@@ -14,8 +14,6 @@ from .base import (
     module_symbols,
     assert_open,
     ensure_open,
-    ensure_call,
-    ensure_call_reply,
 )
 
 globals().update(module_symbols(serial.serialposix))

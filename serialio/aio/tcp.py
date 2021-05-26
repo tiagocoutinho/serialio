@@ -3,7 +3,7 @@ import urllib.parse
 
 import sockio.aio
 
-from .base import LF, SerialBase, SerialException, assert_open, async_assert_open
+from .base import LF, SerialBase, SerialException
 
 
 log = logging.getLogger("serialio.tcp.aio")
