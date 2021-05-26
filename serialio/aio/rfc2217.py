@@ -181,6 +181,24 @@ class TelnetSubnegotiation(object):
         )
 
 
+class NullLock:
+
+    async def acquire(self):
+        pass
+
+    def release(self):
+        pass
+
+    async def __aenter__(self):
+        await self.acquire()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        self.release()
+
+    def locked(self):
+        return False
+
+
 # It was very tempting to inherit from serial.rfc2217.Serial.
 # This would result in being extremely dependent on its implementation details.
 # There would be a high risk that this would become incompatible with several
@@ -218,6 +236,11 @@ class Serial(SerialBase):
             timeout=self._timeout,
             auto_reconnect=self._auto_reconnect,
         )
+        self._socket._lock = NullLock()
+
+    def __del__(self):
+        if self._thread:
+            self._thread.cancel()
 
     @property
     def is_open(self):
