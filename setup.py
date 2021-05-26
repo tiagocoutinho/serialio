@@ -2,7 +2,6 @@
 
 """The setup script."""
 
-import sys
 from setuptools import setup, find_packages
 
 with open("README.md") as f:
@@ -26,7 +25,7 @@ setup(
     ],
     description="Concurrency agnostic serialio API",
     license="GPLv3+",
-    install_requires=["pyserial", "sockio>=0.10"],
+    install_requires=["pyserial>=3", "sockio>=0.15"],
     extras_require={
         "tango": ["pytango"]
     },

@@ -134,9 +134,9 @@ class SerialBase:
         self,
         port,
         baudrate=9600,
-        bytesize=EIGHTBITS,
-        parity=PARITY_NONE,
-        stopbits=STOPBITS_ONE,
+        bytesize=serial.EIGHTBITS,
+        parity=serial.PARITY_NONE,
+        stopbits=serial.STOPBITS_ONE,
         timeout=None,
         xonxoff=False,
         rtscts=False,
@@ -145,7 +145,7 @@ class SerialBase:
         inter_byte_timeout=None,
         exclusive=None,
         auto_reconnect=True,
-        eol=LF,
+        eol=serial.LF,
     ):
         assert isinstance(port, str) and port
         self._port = port
@@ -256,7 +256,7 @@ class SerialBase:
     def timeout(self):
         return self._timeout
 
-    async def timeout(self, timeout):
+    async def set_timeout(self, timeout):
         """Change timeout setting."""
         if timeout is not None:
             try:
@@ -455,7 +455,7 @@ class SerialBase:
 
     @ensure_open
     @ensure_call_reply
-    async def readuntil(self, separator=LF, size=None):
+    async def readuntil(self, separator=serial.LF, size=None):
         """\
         Read until an expected sequence is found ('\n' by default) or the size
         is exceeded.

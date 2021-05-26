@@ -41,6 +41,8 @@ class Serial(SerialBase):
         extract host and port from an URL string, other settings are extracted
         an stored in instance
         """
+        if "://" not in url:
+            url = "serial+tcp://" + url
         parts = urllib.parse.urlsplit(url)
         try:
             if not 0 <= parts.port < 65536:

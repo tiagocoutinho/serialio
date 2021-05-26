@@ -24,16 +24,16 @@ As far as tango is concerned, it should be compatible with the tango classes:
 Base implementation written in asyncio with support for different concurrency models:
 
 * asyncio
-* classic blocking API (TODO)
-* future based API (TODO)
+* classic blocking API
+* future based API
 
 Here is a summary of what is forseen and what is implemented
 
 | Concurrency   | Local  | RFC2217 | Raw TCP | [Tango](http://www.esrf.eu/computing/cs/tango/tango_doc/ds_doc/tango-ds/index.html) |
 | ------------- |:------:|:-------:|:-------:|:-----------------------------------------------------------------------------------:|
 | asyncio       |   Y    |    Y    |    Y    |                                        Y                                            |
-| classic sync  |   N    |    N    |    N    |                                        N                                            |
-| conc. futures |   N    |    N    |    N    |                                        N                                            |
+| classic sync  |   Y    |    Y    |    Y    |                                        Y                                            |
+| conc. futures |   Y    |    Y    |    Y    |                                        Y                                            |
 
 
 ## Installation
@@ -88,7 +88,7 @@ sl = serialio.aio.tcp.Serial("lab1.acme.org:5000")
 
 # or the equivalent
 
-sl = serialio.serial_for_url("serial-tcp://lab1.acme.org:5000")
+sl = serialio.serial_for_url("serial+tcp://lab1.acme.org:5000")
 ```
 
 *RFC2217 (telnet)*
@@ -113,10 +113,10 @@ sl = serialio.aio.tango.Serial("lab/01/serial-01")
 
 # or the equivalent
 
-sl = serialio.serial_for_url("tango://lab/01/serial-01")
+sl = serialio.serial_for_url("serial+tango://lab/01/serial-01")
 ```
 
-### classic (TODO)
+### classic
 
 ```python
 
@@ -127,7 +127,7 @@ reply = sl.write_readline(b"*IDN?\n")
 print(reply)
 ```
 
-### concurrent.futures (TODO)
+### concurrent.futures
 
 ```python
 from serialio.sio.tcp import Serial
@@ -160,7 +160,7 @@ instrument.
 ### REQ-REP semantics
 
 Many instruments out there have a Request-Reply protocol. A serialio Serial
-provides helpfull `write_read` family of methods which simplify communication
+provides helpful `write_read` family of methods which simplify communication
 with these instruments.
 
 ### Custom EOL

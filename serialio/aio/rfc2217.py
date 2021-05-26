@@ -460,6 +460,8 @@ class Serial(SerialBase):
         extract host and port from an URL string, other settings are extracted
         an stored in instance
         """
+        if "://" not in url:
+            url = "rfc2217://" + url
         parts = urllib.parse.urlsplit(url)
         try:
             # process options now, directly altering self

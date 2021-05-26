@@ -41,8 +41,9 @@ class Serial(SerialBase):
             raise SerialException("Port is already open.")
         self.device = None
         # open
+        port = self.port.replace("serial+tango://", "").replace("serial-tango://", "")
         try:
-            self.device = await tango.asyncio.DeviceProxy(self.port)
+            self.device = await tango.asyncio.DeviceProxy(port)
         except tango.DevFailed as error:
             raise SerialException(
                 "could not open tango serial port {}: {!r}".format(self.port, error)
