@@ -140,7 +140,8 @@ print(reply)
 ## API differences with [serial](https://github.com/pyserial/pyserial)
 
 * coroutine based API
-* `open()` coroutine must be called explicitly before using the serial line
+* lazy `open()`, ie, `open()` is called automatically by the library
+  on the first attempt to communicate.
 * setting of parameters done through functions instead of properties (ie:
   `await ser_line.set_XXX(value)` instead of `ser_line.XXX = value`
   (ex: `await ser_line.set_baudrate()`))
