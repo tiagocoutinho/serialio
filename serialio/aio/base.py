@@ -67,7 +67,7 @@ def ensure_open(func):
             return await coro
         except asyncio.TimeoutError as error:
             msg = "{} call timeout on '{}:{}'".format(name, self.host, self.port)
-            raise ConnectionTimeoutError(msg) from error
+            raise SerialTimeoutException(msg) from error
 
     return wrapper
 
