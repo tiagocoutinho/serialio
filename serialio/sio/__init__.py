@@ -11,5 +11,5 @@ def async_to_sync(class_or_func, *args, **kwargs):
     return DefaultEventLoop.proxy(serial, resolve_futures)
 
 
-def serial_for_url(url, *args, **kwargs):
+def serial_for_url(*args, **kwargs):
     return async_to_sync(aio_serial_for_url, *args, **kwargs)
