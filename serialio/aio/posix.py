@@ -269,7 +269,8 @@ class Serial(SerialBase, PlatformSpecific):
     #  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
     @property
-    def in_waiting(self):
+    @ensure_open
+    async def in_waiting(self):
         """Return the number of bytes currently in the input buffer."""
         # ~ s = fcntl.ioctl(self.fd, termios.FIONREAD, TIOCM_zero_str)
         s = fcntl.ioctl(self.fd, TIOCINQ, TIOCM_zero_str)
