@@ -34,7 +34,7 @@ setup(
     keywords="serial, rs232, rcf2217, socket, tcp, ser2net",
     packages=find_packages(),
     url="https://tiagocoutinho.github.io/serialio/",
-    version="2.4.0",
+    version="2.4.1",
     python_requires=">=3.5",
     zip_safe=True,
 )
