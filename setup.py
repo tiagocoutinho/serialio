@@ -33,7 +33,7 @@ setup(
     long_description_content_type="text/markdown",
     keywords="serial, rs232, rcf2217, socket, tcp, ser2net",
     packages=find_packages(),
-    url="https://tiagocoutinho.github.io/serialio/",
+    url="https://github.com/tiagocoutinho/serialio/",
     version="2.4.0",
     python_requires=">=3.5",
     zip_safe=True,
